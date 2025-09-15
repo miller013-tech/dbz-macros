@@ -119,25 +119,29 @@ setDefaultTab("Others")
 UI.Label("---------------")
 
 
-
-storage.Spell1 = storage.Spell1 or "Single target"
-storage.Spell2 = storage.Spell2 or "Multi target"
-
 local distance = 3
 local amountOfMonsters = 2
 
+-- Storage por char
+storage.Spell1 = storage.Spell1 or "Single target"
+storage.Spell2 = storage.Spell2 or "Multi target"
+
 macro(1000, "Magias sem PK", function()
+    if not g_game.isAttacking() then return end -- só roda se tiver atacando
+
     local isSafe = true
     local specAmount = 0
-    if not g_game.isAttacking() then return end
+
     for i, mob in ipairs(getSpectators()) do
         if (getDistanceBetween(player:getPosition(), mob:getPosition()) <= distance and mob:isMonster()) then
             specAmount = specAmount + 1
         end
+
         if (mob:isPlayer() and (player:getName() ~= mob:getName()) and g_game.isAttacking(storage.Spell1)) then
             isSafe = false
         end
     end
+
     if (specAmount >= amountOfMonsters) and isSafe then
         say(storage.Spell2, 200)
     else
@@ -145,11 +149,12 @@ macro(1000, "Magias sem PK", function()
     end
 end)
 
-addTextEdit("Spell1", storage.Spell1, function(widget, text) 
+-- TextEdits visíveis na aba do bot
+addTextEdit("Spell1", storage.Spell1, function(widget, text)
     storage.Spell1 = text
 end)
 
-addTextEdit("Spell2", storage.Spell2, function(widget, text) 
+addTextEdit("Spell2", storage.Spell2, function(widget, text)
     storage.Spell2 = text
 end)
 
@@ -289,5 +294,6 @@ end)
 macro(10, "Andar para o Norte", function()
     schedule(10, function() walk(0) end)
 end)
+
 
 
