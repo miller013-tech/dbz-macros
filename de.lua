@@ -2,6 +2,9 @@ UI.Label("---------------")
 
 setDefaultTab("Main")
 
+
+UI.Label("---------------")
+
 -- =========================
 -- ⚡ Script de Combo com TextEdits visíveis
 -- =========================
@@ -115,6 +118,43 @@ setDefaultTab("Others")
 
 UI.Label("---------------")
 
+
+
+local distance = 3
+local amountOfMonsters = 2
+
+macro(1000, "Magias sem PK", function()
+    local isSafe = true
+    local specAmount = 0
+    if not g_game.isAttacking() then
+        return
+    end
+    for i, mob in ipairs(getSpectators()) do
+        if (getDistanceBetween(player:getPosition(), mob:getPosition()) <= distance and mob:isMonster()) then
+            specAmount = specAmount + 1
+        end
+        if (mob:isPlayer() and (player:getName() ~= mob:getName()) and g_game.isAttacking(storage.Spell1)) then
+            isSafe = false
+        end
+    end
+    if (specAmount >= amountOfMonsters) and isSafe then
+        say(storage.Spell2, 200)
+    else
+        say(storage.Spell1, 200)
+    end
+end)
+
+addTextEdit("Spell1", storage.Spell1 or "Single target", function(widget, text) 
+    storage.Spell1 = text
+end)
+
+addTextEdit("Spell2", storage.Spell2 or "Multi target", function(widget, text) 
+    storage.Spell2 = text
+end)
+
+
+
+
 macro(12000, "PVP OFF", function()
     say("!pvp off")
 end)
@@ -206,17 +246,19 @@ macro(100, "Mobs", function()
 end)
 
 -- Macro de ataque em área editável
-storage.areaSpell = storage.areaSpell or "Kai Blast"
+storage.areaSpell = storage.areaSpell or "Furie"
 
-macro(100, "Área Editável", function()
+macro(10, "area", function()
     if g_game.isAttacking() then
         say(storage.areaSpell)
     end
 end)
 
-addTextEdit("areaSpell", storage.areaSpell, function(widget, text)
+addTextEdit("Ataque em Área", storage.areaSpell, function(widget, text)
     storage.areaSpell = text
 end)
+
+
 
 UI.Label("---------------")
 
@@ -246,3 +288,4 @@ end)
 macro(10, "Andar para o Norte", function()
     schedule(10, function() walk(0) end)
 end)
+
