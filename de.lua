@@ -251,18 +251,17 @@ macro(100, "Mobs", function()
     end
 end)
 
--- Macro de ataque em área editável
+
 storage.areaSpell = storage.areaSpell or "Furie"
 
-macro(10, "area", function()
-    if g_game.isAttacking() then
-        say(storage.areaSpell)
-    end
+macro(200, "area", function()
+    say(storage.areaSpell)
 end)
 
 addTextEdit("Ataque em Área", storage.areaSpell, function(widget, text)
     storage.areaSpell = text
 end)
+
 
 
 
@@ -295,5 +294,17 @@ macro(10, "Andar para o Norte", function()
     schedule(10, function() walk(0) end)
 end)
 
+
+
+storage.notifyChar = "Devinha"
+
+onTextMessage(function(mode, text)
+  local old, new = text:match("You advanced from Level (%d+) to Level (%d+)")
+  if old and new then
+    local msg = string.format("[%s] %s avançou do level %s para o level %s.",
+      os.date("%H:%M:%S"), name(), old, new)
+    sayPrivate(storage.notifyChar, msg)
+  end
+end)
 
 
