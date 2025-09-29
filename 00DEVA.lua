@@ -1,665 +1,376 @@
-setDefaultTab("Dev")
-
---2x healing spell
---2x healing rune
---utani hur
---mana shield
---anti paralyze
---4x equip
-
-UI.Label("Healing spells")
-
-if type(storage.healing1) ~= "table" then
-  storage.healing1 = {on=false, title="HP%", text="exura", min=51, max=90}
-end
-if type(storage.healing2) ~= "table" then
-  storage.healing2 = {on=false, title="HP%", text="exura vita", min=0, max=50}
-end
-
--- create 2 healing widgets
-for _, healingInfo in ipairs({storage.healing1, storage.healing2}) do
-  local healingmacro = macro(20, function()
-    local hp = player:getHealthPercent()
-    if healingInfo.max >= hp and hp >= healingInfo.min then
-      if TargetBot then 
-        TargetBot.saySpell(healingInfo.text) -- sync spell with targetbot if available
-      else
-        say(healingInfo.text)
-      end
-    end
-  end)
-  healingmacro.setOn(healingInfo.on)
-
-  UI.DualScrollPanel(healingInfo, function(widget, newParams) 
-    healingInfo = newParams
-    healingmacro.setOn(healingInfo.on)
-  end)
-end
-
-UI.Separator()
-
-UI.Label("Mana & health potions/runes")
-
-if type(storage.hpitem1) ~= "table" then
-  storage.hpitem1 = {on=false, title="HP%", item=266, min=51, max=90}
-end
-if type(storage.hpitem2) ~= "table" then
-  storage.hpitem2 = {on=false, title="HP%", item=3160, min=0, max=50}
-end
-if type(storage.manaitem1) ~= "table" then
-  storage.manaitem1 = {on=false, title="MP%", item=268, min=51, max=90}
-end
-if type(storage.manaitem2) ~= "table" then
-  storage.manaitem2 = {on=false, title="MP%", item=3157, min=0, max=50}
-end
-
-for i, healingInfo in ipairs({storage.hpitem1, storage.hpitem2, storage.manaitem1, storage.manaitem2}) do
-  local healingmacro = macro(20, function()
-    local hp = i <= 2 and player:getHealthPercent() or math.min(100, math.floor(100 * (player:getMana() / player:getMaxMana())))
-    if healingInfo.max >= hp and hp >= healingInfo.min then
-      if TargetBot then 
-        TargetBot.useItem(healingInfo.item, healingInfo.subType, player) -- sync spell with targetbot if available
-      else
-        local thing = g_things.getThingType(healingInfo.item)
-        local subType = g_game.getClientVersion() >= 860 and 0 or 1
-        if thing and thing:isFluidContainer() then
-          subType = healingInfo.subType
-        end
-        g_game.useInventoryItemWith(healingInfo.item, player, subType)
-      end
-    end
-  end)
-  healingmacro.setOn(healingInfo.on)
-
-  UI.DualScrollItemPanel(healingInfo, function(widget, newParams) 
-    healingInfo = newParams
-    healingmacro.setOn(healingInfo.on and healingInfo.item > 100)
-  end)
-end
-
-if g_game.getClientVersion() < 780 then
-  UI.Label("In old tibia potions & runes work only when you have backpack with them opened")
-end
-
-UI.Separator()
-
-
-UI.Label("Eatable items:")
-if type(storage.foodItems) ~= "table" then
-  storage.foodItems = {3582, 3577}
-end
-
-local foodContainer = UI.Container(function(widget, items)
-  storage.foodItems = items
-end, true)
-foodContainer:setHeight(35)
-foodContainer:setItems(storage.foodItems)
-
-macro(10000, "eat food", function()
-  if not storage.foodItems[1] then return end
-  -- search for food in containers
-  for _, container in pairs(g_game.getContainers()) do
-    for __, item in ipairs(container:getItems()) do
-      for i, foodItem in ipairs(storage.foodItems) do
-        if item:getId() == foodItem.id then
-          return g_game.use(item)
-        end
-      end
+macro(1000, "Andar no horário (Norte)", function()
+  local H, M = 23, 55
+  storage.lastMove = storage.lastMove or {hour=-1, min=-1}
+  local t = os.date("*t")
+  if t.hour == H and t.min == M then
+    if storage.lastMove.hour ~= t.hour or storage.lastMove.min ~= t.min then
+      g_game.walk(North)
+      storage.lastMove = {hour=t.hour, min=t.min}
     end
   end
-  -- can't find any food, try to eat random item using hotkey
-  if g_game.getClientVersion() < 780 then return end -- hotkey's dont work on old tibia
-  local toEat = storage.foodItems[math.random(1, #storage.foodItems)]
-  if toEat then g_game.useInventoryItem(toEat.id) end
 end)
 
-UI.Separator()
-UI.Label("Auto equip")
-
-if type(storage.autoEquip) ~= "table" then
-  storage.autoEquip = {}
-end
-for i=1,4 do -- if you want more auto equip panels you can change 4 to higher value
-  if not storage.autoEquip[i] then
-    storage.autoEquip[i] = {on=false, title="Auto Equip", item1=i == 1 and 3052 or 0, item2=i == 1 and 3089 or 0, slot=i == 1 and 9 or 0}
+macro(1000, "Andar no horário (Sul)", function()
+  local H, M = 00, 05
+  storage.lastMove = storage.lastMove or {hour=-1, min=-1}
+  local t = os.date("*t")
+  if t.hour == H and t.min == M then
+    if storage.lastMove.hour ~= t.hour or storage.lastMove.min ~= t.min then
+      g_game.walk(South)
+      storage.lastMove = {hour=t.hour, min=t.min}
+    end
   end
-  UI.TwoItemsAndSlotPanel(storage.autoEquip[i], function(widget, newParams)
-    storage.autoEquip[i] = newParams
-  end)
-end
-macro(250, function()
-  local containers = g_game.getContainers()
-  for index, autoEquip in ipairs(storage.autoEquip) do
-    if autoEquip.on then
-      local slotItem = getSlot(autoEquip.slot)
-      if not slotItem or (slotItem:getId() ~= autoEquip.item1 and slotItem:getId() ~= autoEquip.item2) then
-        for _, container in pairs(containers) do
-          for __, item in ipairs(container:getItems()) do
-            if item:getId() == autoEquip.item1 or item:getId() == autoEquip.item2 then
-              g_game.move(item, {x=65535, y=autoEquip.slot, z=0}, item:getCount())
-              delay(1000) -- don't call it too often      
-              return
-            end
-          end
-        end
+end)
+
+
+local saidOnLogin = false
+
+local sendCommandMacro = macro(1000, "RELOGAR RAT", function()
+  if not saidOnLogin and g_game.isOnline() then
+    say("!rat")
+    saidOnLogin = true
+  end
+end)
+
+
+
+UI.Label("Nomes para convidar para party:")
+local partyInviteList = UI.TextEdit(storage.partyInviteList or "Darkzin, Gokuu", function(widget, text)
+  storage.partyInviteList = text
+end)
+
+local inviteMacro = macro(2000, "Auto Invite Party", function()
+  if not storage.partyInviteList or storage.partyInviteList == "" then return end
+
+  local names = {}
+  for name in string.gmatch(storage.partyInviteList, '([^,]+)') do
+    name = name:trim()
+    if name ~= "" then
+      table.insert(names, name)
+    end
+  end
+  if #names == 0 then return end
+
+  if not storage.partyConfirmed then storage.partyConfirmed = {} end
+  if not storage.pendingInvites then storage.pendingInvites = {} end
+
+  -- Remove da lista quem já está na party
+  if g_game.getPartyMemberByName then
+    for _, name in ipairs(names) do
+      if g_game.getPartyMemberByName(name) then
+        storage.partyConfirmed[name:lower()] = true
+      end
+    end
+  end
+
+  for _, name in ipairs(names) do
+    local lowerName = name:lower()
+
+    if not storage.partyConfirmed[lowerName] and not storage.pendingInvites[lowerName] then
+      local creature = getCreatureByName(name)
+      if creature and creature:isPlayer() then
+        g_game.partyInvite(creature:getId())
+        storage.pendingInvites[lowerName] = true
+
+        -- ? Usa o nome real da criatura (com hífen, acento, etc.)
+        schedule(200, function()
+          say("pt " .. creature:getName())
+        end)
+
+        break -- só um por vez
       end
     end
   end
 end)
 
--- allows to test/edit bot lua scripts ingame, you can have multiple scripts like this, just change storage.ingame_lua
-UI.Button("Ingame macro editor", function(newText)
-  UI.MultilineEditorWindow(storage.ingame_macros or "", {title="Macro editor", description="You can add your custom macros (or any other lua code) here"}, function(text)
-    storage.ingame_macros = text
-    reload()
-  end)
-end)
-UI.Button("Ingame hotkey editor", function(newText)
-  UI.MultilineEditorWindow(storage.ingame_hotkeys or "", {title="Hotkeys editor", description="You can add your custom hotkeys/singlehotkeys here"}, function(text)
-    storage.ingame_hotkeys = text
-    reload()
-  end)
-end)
-
-UI.Separator()
-
-for _, scripts in ipairs({storage.ingame_macros, storage.ingame_hotkeys}) do
-  if type(scripts) == "string" and scripts:len() > 3 then
-    local status, result = pcall(function()
-      assert(load(scripts, "ingame_editor"))()
-    end)
-    if not status then 
-      error("Ingame edior error:\n" .. result)
-    end
+-- Escuta mensagens do chat para registrar "pta"
+onTalk(function(name, level, mode, text, channelId, pos)
+  if text:lower() == "pta" then
+    storage.partyConfirmed = storage.partyConfirmed or {}
+    storage.partyConfirmed[name:lower()] = true
+    storage.pendingInvites = storage.pendingInvites or {}
+    storage.pendingInvites[name:lower()] = nil
   end
-end
 
-UI.Separator()
-
-UI.Button("Zoom In map [ctrl + =]", function() zoomIn() end)
-UI.Button("Zoom Out map [ctrl + -]", function() zoomOut() end)
-
-UI.Separator()
-
-local moneyIds = {3031, 3035} -- gold coin, platinium coin
-macro(1000, "Exchange money", function()
-  local containers = g_game.getContainers()
-  for index, container in pairs(containers) do
-    if not container.lootContainer then -- ignore monster containers
-      for i, item in ipairs(container:getItems()) do
-        if item:getCount() == 100 then
-          for m, moneyId in ipairs(moneyIds) do
-            if item:getId() == moneyId then
-              return g_game.use(item)            
-            end
-          end
-        end
-      end
-    end
+  -- Comando para resetar listas
+  if text:lower() == "!rat" then
+    storage.partyConfirmed = {}
+    storage.pendingInvites = {}
+    say("Listas de party resetadas.")
   end
 end)
 
-macro(1000, "Stack items", function()
-  local containers = g_game.getContainers()
-  local toStack = {}
-  for index, container in pairs(containers) do
-    if not container.lootContainer then -- ignore monster containers
-      for i, item in ipairs(container:getItems()) do
-        if item:isStackable() and item:getCount() < 100 then
-          local stackWith = toStack[item:getId()]
-          if stackWith then
-            g_game.move(item, stackWith[1], math.min(stackWith[2], item:getCount()))
-            return
-          end
-          toStack[item:getId()] = {container:getSlotPosition(i - 1), 100 - item:getCount()}
-        end
-      end
-    end
-  end
-end)
+UI.Label("---------------")
 
-macro(10000, "Anti Kick",  function()
-  local dir = player:getDirection()
-  turn((dir + 1) % 4)
-  turn(dir)
-end)
-
-UI.Separator()
-UI.Label("Drop items:")
-if type(storage.dropItems) ~= "table" then
-  storage.dropItems = {283, 284, 285}
-end
-
-local foodContainer = UI.Container(function(widget, items)
-  storage.dropItems = items
-end, true)
-foodContainer:setHeight(35)
-foodContainer:setItems(storage.dropItems)
-
-macro(5000, "drop items", function()
-  if not storage.dropItems[1] then return end
-  if TargetBot and TargetBot.isActive() then return end -- pause when attacking
-  for _, container in pairs(g_game.getContainers()) do
-    for __, item in ipairs(container:getItems()) do
-      for i, dropItem in ipairs(storage.dropItems) do
-        if item:getId() == dropItem.id then
-          if item:isStackable() then
-            return g_game.move(item, player:getPosition(), item:getCount())
-          else
-            return g_game.move(item, player:getPosition(), dropItem.count) -- count is also subtype
-          end
-        end
-      end
-    end
-  end
-end)
-
-UI.Separator()
-
-UI.Label("Mana training")
-if type(storage.manaTrain) ~= "table" then
-  storage.manaTrain = {on=false, title="MP%", text="utevo lux", min=80, max=100}
-end
-
-local manatrainmacro = macro(1000, function()
-  if TargetBot and TargetBot.isActive() then return end -- pause when attacking
-  local mana = math.min(100, math.floor(100 * (player:getMana() / player:getMaxMana())))
-  if storage.manaTrain.max >= mana and mana >= storage.manaTrain.min then
-    say(storage.manaTrain.text)
-  end
-end)
-manatrainmacro.setOn(storage.manaTrain.on)
-
-UI.DualScrollPanel(storage.manaTrain, function(widget, newParams) 
-  storage.manaTrain = newParams
-  manatrainmacro.setOn(storage.manaTrain.on)
-end)
-
-UI.Separator()
-
-
-setDefaultTab("TARGET")
-
-
--- Variável persistente para lembrar estado mesmo após relogar
-if storage.travelNpcScriptActive == nil then
-  storage.travelNpcScriptActive = true  -- começa ativado por padrão
-end
-
-local scriptActive = storage.travelNpcScriptActive
-
--- Botão para ativar/desativar o script
-UI.Button(scriptActive and "Desativar Travel NPC Script" or "Ativar Travel NPC Script", function(widget)
-  scriptActive = not scriptActive
-  storage.travelNpcScriptActive = scriptActive
-  if scriptActive then
-    widget:setText("Desativar Travel NPC Script")
-  else
-    widget:setText("Ativar Travel NPC Script")
-  end
-end)
-
-local npcOptions = {
-  ["King Kai"] = {
-    options = {"diario", "info", "feito", "buff", "habilidades"},
-    flow = "default"
-  },
-  ["Gate Keaper"] = {
-    options = {"Earth", "M2", "Tsufur", "Zelta", "Vegeta", "Namek", "Gardia", "Lude", "Premia", "City 17", "Rygol", "Ruudese", "Kanassa", "Gelbo", "Tritek", "CC21", "Yardratto"},
-    flow = "default"
-  },
-  ["Chi Chi"] = {
-    options = {"recompensa"},
-    flow = "default"
-  },
-  ["Boaterni"] = {
-    options = {"namek island", "small city"},
-    flow = "boaterni"
-  },
-  ["Blessed Tapion"] = {
-    options = {"proteção"},
-    flow = "default"
-  }
-}
-
-local currentNpc = nil
-local saidHi = false
-
--- UI Setup
-local travelUI = setupUI([[
-UIWindow
-  !text: tr('NPC Interactions')
-  color: #99d6ff
-  font: sans-bold-16px
-  size: 180 120
-  background-color: black
-  opacity: 0.85
-  anchors.left: parent.left
-  anchors.top: parent.top
-  margin-left: 600
-  margin-top: 150
-
-  ComboBox
-    id: travelOptions
-    anchors.horizontalCenter: parent.horizontalCenter
-    anchors.top: parent.top
-    text-align: center
-    opacity: 1.0
-    color: yellow
-    font: sans-bold-16px
-    margin-top: 25
-
-  Button
-    id: closeButton
-    text: X
-    anchors.right: parent.right
-    anchors.bottom: parent.bottom
-    color: #99d6ff
-    size: 15 15
-    margin-bottom: 10
-    margin-right: 10
-    onClick: |
-      travelUI:hide()
-]], g_ui.getRootWidget())
-
-travelUI:hide()
-
-local function npcTalk(text)
-  if g_game.getClientVersion() >= 810 then
-    g_game.talkChannel(11, 0, text)
-  else
-    say(text)
-  end
-end
-
-local function resetState()
-  currentNpc = nil
-  saidHi = false
-  travelUI:hide()
-  travelUI.travelOptions:clearOptions()
-  travelUI.travelOptions:addOption("None")
-  travelUI.travelOptions:setCurrentOption("None")
-end
-
-local function sayHi(npcName)
-  if not saidHi then
-    npcTalk("hi")
-    saidHi = true
-  end
-end
-
-local function onOptionClick(option)
-  if not currentNpc then return end
-  local npcData = npcOptions[currentNpc]
-  if not npcData then return end
-
-  if npcData.flow == "default" then
-    npcTalk(option)
-    if not (currentNpc == "King Kai" and (option == "buff" or option == "habilidades")) then
-      schedule(400, function()
-        npcTalk("yes")
-      end)
-    end
-  elseif npcData.flow == "boaterni" then
-    npcTalk("travel")
-    schedule(400, function()
-      npcTalk(option)
-    end)
-  end
-end
-
-travelUI.travelOptions.onOptionChange = function(widget, option, data)
-  if option ~= "None" then
-    onOptionClick(option)
-    schedule(50, function()
-      travelUI.travelOptions:setCurrentOption("None")
-    end)
-  end
-end
-
-macro(500, function()
-  if not scriptActive then return end
-
-  local nearestNpc = nil
-  local nearestDist = 100
-
-  for npcName, data in pairs(npcOptions) do
-    local npcCreature = getCreatureByName(npcName)
-    if npcCreature then
-      local dist = getDistanceBetween(pos(), npcCreature:getPosition())
-      if dist <= 3 and dist < nearestDist then
-        nearestDist = dist
-        nearestNpc = npcName
-      end
-    end
-  end
-
-  if nearestNpc then
-    if currentNpc ~= nearestNpc then
-      resetState()
-      currentNpc = nearestNpc
-
-      travelUI.travelOptions:clearOptions()
-      travelUI.travelOptions:addOption("None")
-      for _, opt in ipairs(npcOptions[currentNpc].options) do
-        travelUI.travelOptions:addOption(opt)
-      end
-
-      travelUI:show()
-      sayHi(currentNpc)
-    end
-  else
-    if currentNpc ~= nil then
-      resetState()
-    end
-  end
-end)
-
-
-
-local SpellData = {};
-local CastData = {};
-
-local update = function(data)
-    SpellData = data:split(",");
-    storage.SpellData = text;
-end
-
-UI.TextEdit(storage.SpellData or "Magia, Magia em Laranja", function(widget, text)
-    text = text:trim():lower();
-    update(text);
-end)
-
-spellTimeMacro = macro(1, 'Spell Time', function()
-    say(SpellData[1]);
-end)
+local acceptPartyMacro = macro(100, "Auto Accept Party", function() end)
 
 onTalk(function(name, level, mode, text, channelId, pos)
-    if (player:getName() ~= name) then return; end
-    if (spellTimeMacro.isOff()) then return; end
-    
-    local spellName = (SpellData[2] or SpellData[1]):trim();
-    if (text:lower() == spellName) then
-        if (CastData.name == spellName) then
-            info(tr(now - CastData.time));
-        end
-        CastData = {name=spellName,time=now};
-    end
-end)
+  if not acceptPartyMacro:isOn() then return end
 
+  local realName = player:getName()
+  local textLower = text:lower()
+  local realNameLower = realName:lower()
 
-setDefaultTab("OTHERS")
-
--- Variável persistente para lembrar estado mesmo após relogar
-if storage.travelNpcScriptActive == nil then
-  storage.travelNpcScriptActive = true  -- começa ativado por padrão
-end
-
-local scriptActive = storage.travelNpcScriptActive
-
--- Botão para ativar/desativar o script
-UI.Button(scriptActive and "Desativar Travel NPC Script" or "Ativar Travel NPC Script", function(widget)
-  scriptActive = not scriptActive
-  storage.travelNpcScriptActive = scriptActive
-  if scriptActive then
-    widget:setText("Desativar Travel NPC Script")
-  else
-    widget:setText("Ativar Travel NPC Script")
-  end
-end)
-
-local npcOptions = {
-  ["King Kai"] = {
-    options = {"diario", "info", "feito", "buff", "habilidades"},
-    flow = "default"
-  },
-  ["Gate Keaper"] = {
-    options = {"Earth", "M2", "Tsufur", "Zelta", "Vegeta", "Namek", "Gardia", "Lude", "Premia", "City 17", "Rygol", "Ruudese", "Kanassa", "Gelbo", "Tritek", "CC21", "Yardratto"},
-    flow = "default"
-  },
-  ["Chi Chi"] = {
-    options = {"recompensa"},
-    flow = "default"
-  },
-  ["Boaterni"] = {
-    options = {"namek island", "small city"},
-    flow = "boaterni"
-  },
-  ["Blessed Tapion"] = {
-    options = {"proteção"},
-    flow = "default"
-  }
-}
-
-local currentNpc = nil
-local saidHi = false
-
--- UI Setup
-local travelUI = setupUI([[
-UIWindow
-  !text: tr('NPC Interactions')
-  color: #99d6ff
-  font: sans-bold-16px
-  size: 180 120
-  background-color: black
-  opacity: 0.85
-  anchors.left: parent.left
-  anchors.top: parent.top
-  margin-left: 600
-  margin-top: 150
-
-  ComboBox
-    id: travelOptions
-    anchors.horizontalCenter: parent.horizontalCenter
-    anchors.top: parent.top
-    text-align: center
-    opacity: 1.0
-    color: yellow
-    font: sans-bold-16px
-    margin-top: 25
-
-  Button
-    id: closeButton
-    text: X
-    anchors.right: parent.right
-    anchors.bottom: parent.bottom
-    color: #99d6ff
-    size: 15 15
-    margin-bottom: 10
-    margin-right: 10
-    onClick: |
-      travelUI:hide()
-]], g_ui.getRootWidget())
-
-travelUI:hide()
-
-local function npcTalk(text)
-  if g_game.getClientVersion() >= 810 then
-    g_game.talkChannel(11, 0, text)
-  else
-    say(text)
-  end
-end
-
-local function resetState()
-  currentNpc = nil
-  saidHi = false
-  travelUI:hide()
-  travelUI.travelOptions:clearOptions()
-  travelUI.travelOptions:addOption("None")
-  travelUI.travelOptions:setCurrentOption("None")
-end
-
-local function sayHi(npcName)
-  if not saidHi then
-    npcTalk("hi")
-    saidHi = true
-  end
-end
-
-local function onOptionClick(option)
-  if not currentNpc then return end
-  local npcData = npcOptions[currentNpc]
-  if not npcData then return end
-
-  if npcData.flow == "default" then
-    npcTalk(option)
-    if not (currentNpc == "King Kai" and (option == "buff" or option == "habilidades")) then
-      schedule(400, function()
-        npcTalk("yes")
+  -- Verifica se a mensagem contém "pt" seguido do nome real (com hífen, maiúsculas, etc)
+  if textLower:match("pt%s+" .. realNameLower) or text:match("pt%s+" .. realName) then
+    local creature = getCreatureByName(name)
+    if creature then
+      say("pta")
+      schedule(100, function()
+        g_game.partyJoin(creature:getId())
+        acceptPartyMacro:stop()
       end)
     end
-  elseif npcData.flow == "boaterni" then
-    npcTalk("travel")
-    schedule(400, function()
-      npcTalk(option)
-    end)
   end
-end
+end)
 
-travelUI.travelOptions.onOptionChange = function(widget, option, data)
-  if option ~= "None" then
-    onOptionClick(option)
-    schedule(50, function()
-      travelUI.travelOptions:setCurrentOption("None")
-    end)
-  end
-end
 
-macro(500, function()
-  if not scriptActive then return end
+-- attack_with_storage.lua
+local ITEM_ID = 5725
+local SIGNAL_TIMEOUT = 300 -- segundos
+local MACRO_DELAY = 3000 -- ms
 
-  local nearestNpc = nil
-  local nearestDist = 100
-
-  for npcName, data in pairs(npcOptions) do
-    local npcCreature = getCreatureByName(npcName)
-    if npcCreature then
-      local dist = getDistanceBetween(pos(), npcCreature:getPosition())
-      if dist <= 3 and dist < nearestDist then
-        nearestDist = dist
-        nearestNpc = npcName
+local function itemPresent(id)
+  local z = posz()
+  local tiles = g_map.getTiles(z)
+  if not tiles then return false end
+  for _, tile in ipairs(tiles) do
+    local count = tile:getThingCount()
+    for i = 0, count - 1 do
+      local thing = tile:getThing(i)
+      if thing and thing.getId and thing:getId() == id then
+        return true
       end
     end
   end
+  return false
+end
 
-  if nearestNpc then
-    if currentNpc ~= nearestNpc then
-      resetState()
-      currentNpc = nearestNpc
+onTalk(function(name, level, mode, text, channelId, pos)
+  if not text then return end
+  if text:lower():find("!attackme", 1, true) then
+    storage.requestedTarget = name
+    storage.requestTime = os.time()
+    print(("[SignalAttack][storage] Pedido salvo: %s (ts=%d)"):format(tostring(name), storage.requestTime))
+  end
+end)
 
-      travelUI.travelOptions:clearOptions()
-      travelUI.travelOptions:addOption("None")
-      for _, opt in ipairs(npcOptions[currentNpc].options) do
-        travelUI.travelOptions:addOption(opt)
+macro(MACRO_DELAY, "Atacar por sinal (storage)", function()
+  if not storage.requestedTarget or storage.requestedTarget == "" then return end
+  local elapsed = os.time() - (storage.requestTime or 0)
+  if elapsed > SIGNAL_TIMEOUT then
+    print("[SignalAttack][storage] Pedido expirado. Limpando storage.")
+    storage.requestedTarget = nil
+    storage.requestTime = nil
+    return
+  end
+  if not itemPresent(ITEM_ID) then return end
+  local creature = getCreatureByName(storage.requestedTarget)
+  if creature and creature:isPlayer() and g_game.getAttackingCreature() ~= creature then
+    g_game.attack(creature)
+    print(("[SignalAttack][storage] Atacando %s (pedido persistente)."):format(storage.requestedTarget))
+    -- não limpamos storage automaticamente (conforme seu pedido). Se quiser limpar após atacar, descomente a linha abaixo:
+    -- storage.requestedTarget, storage.requestTime = nil, nil
+  end
+end)
+
+-- Funções úteis (use no console se precisar)
+function clearAttackRequest()
+  storage.requestedTarget = nil
+  storage.requestTime = nil
+  print("[SignalAttack][storage] Pedido manualmente limpo.")
+end
+
+function showAttackRequest()
+  print(("Pedido atual: %s  ts=%s"):format(tostring(storage.requestedTarget), tostring(storage.requestTime)))
+end
+
+
+
+
+UI.Label("---------------")
+
+
+
+macro(5000, "Power Down check", function()
+  for _, tile in ipairs(g_map.getTiles(posz())) do
+    for i=0, tile:getThingCount()-1 do
+      local thing = tile:getThing(i)
+      if thing and thing:getId() == 5725 then
+        say("Power Down")
+        return
       end
-
-      travelUI:show()
-      sayHi(currentNpc)
     end
+  end
+end)
+
+
+
+
+storage.areaSpell = storage.areaSpell or "Furie"
+
+macro(1000, "ATAQUE", function()
+    say(storage.areaSpell)
+end)
+
+addTextEdit("Ataque em Área", storage.areaSpell, function(widget, text)
+    storage.areaSpell = text
+end)
+
+
+UI.Label("---------------")
+
+
+UI.Label(" x MAIN x ")
+
+
+UI.Label("---------------")
+
+
+
+
+-- Atacar alvo (com storage para lembrar ON/OFF por conta)
+UI.Label("Nome do alvo para atacar:")
+local attackTargetName = UI.TextEdit(storage.attackTargetName or "Comedor-de-lanche", function(widget, text)
+  storage.attackTargetName = text
+end)
+
+-- macro principal (loop de 1s)
+local attackTarget = macro(1000, "Atacar alvo", function()
+  local targetName = storage.attackTargetName
+  if not targetName or targetName:trim() == "" then return end
+
+  local creature = getCreatureByName(targetName)
+  if creature and creature:isPlayer() then
+    if g_game.getAttackingCreature() ~= creature then
+      g_game.attack(creature)
+    end
+  end
+end)
+
+-- Inicializa storage.attackTargetEnabled se não existir (por padrão desativado)
+if storage.attackTargetEnabled == nil then
+  storage.attackTargetEnabled = false
+end
+
+-- Aplica o estado salvo: se storage diz true -> liga o macro; se false -> garante parado
+if storage.attackTargetEnabled then
+  if not attackTarget:isOn() then attackTarget:start() end
+else
+  if attackTarget:isOn() then attackTarget:stop() end
+end
+
+-- Funções utilitárias para controlar por console (opcional)
+function enableAttackTarget()
+  storage.attackTargetEnabled = true
+  attackTarget:start()
+  print("[Atacar alvo] Habilitado e salvo em storage.")
+end
+
+function disableAttackTarget()
+  storage.attackTargetEnabled = false
+  attackTarget:stop()
+  print("[Atacar alvo] Desabilitado e salvo em storage.")
+end
+
+function toggleAttackTarget()
+  if attackTarget:isOn() then
+    disableAttackTarget()
   else
-    if currentNpc ~= nil then
-      resetState()
+    enableAttackTarget()
+  end
+end
+
+-- Sincroniza manual toggles do botão com o storage:
+-- se o usuário clicar no botão do macro (que altera attackTarget:isOn()),
+-- este loop detecta a mudança e atualiza storage para lembrar no próximo login.
+spawn(function()
+  local lastState = attackTarget:isOn()
+  while true do
+    local cur = attackTarget:isOn()
+    if cur ~= lastState then
+      storage.attackTargetEnabled = cur
+      print(("[Atacar alvo] Estado manual alterado -> storage atualizado = %s"):format(tostring(cur)))
+      lastState = cur
     end
+    sleep(1000)
+  end
+end)
+
+
+
+
+-- ME ATACAR (com storage)
+local ITEM_ID = 5725
+local DELAY = 5000 -- 5 segundos
+
+-- Macro principal
+local meAtacarMacro = macro(DELAY, "ME ATACAR", function()
+  -- checa se item está na tela
+  local function itemPresent(id)
+    local z = posz()
+    local tiles = g_map.getTiles(z)
+    if not tiles then return false end
+    for _, tile in ipairs(tiles) do
+      local count = tile:getThingCount()
+      for i = 0, count - 1 do
+        local thing = tile:getThing(i)
+        if thing and thing.getId and thing:getId() == id then
+          return true
+        end
+      end
+    end
+    return false
+  end
+
+  if itemPresent(ITEM_ID) then
+    say("!attackme")
+  end
+end)
+
+-- Inicializa storage se não existir (desativado por padrão)
+if storage.meAtacarEnabled == nil then
+  storage.meAtacarEnabled = false
+end
+
+-- Aplica estado salvo
+if storage.meAtacarEnabled then
+  if not meAtacarMacro:isOn() then meAtacarMacro:start() end
+else
+  if meAtacarMacro:isOn() then meAtacarMacro:stop() end
+end
+
+-- Funções utilitárias para console
+function enableMeAtacar()
+  storage.meAtacarEnabled = true
+  meAtacarMacro:start()
+  print("[ME ATACAR] Habilitado e salvo em storage.")
+end
+
+function disableMeAtacar()
+  storage.meAtacarEnabled = false
+  meAtacarMacro:stop()
+  print("[ME ATACAR] Desabilitado e salvo em storage.")
+end
+
+function toggleMeAtacar()
+  if meAtacarMacro:isOn() then
+    disableMeAtacar()
+  else
+    enableMeAtacar()
+  end
+end
+
+-- Atualiza storage automaticamente se macro for ligado/desligado manualmente
+spawn(function()
+  local lastState = meAtacarMacro:isOn()
+  while true do
+    local cur = meAtacarMacro:isOn()
+    if cur ~= lastState then
+      storage.meAtacarEnabled = cur
+      lastState = cur
+      print(("[ME ATACAR] Estado alterado -> storage atualizado = %s"):format(tostring(cur)))
+    end
+    sleep(1000)
   end
 end)
