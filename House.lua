@@ -125,10 +125,8 @@ onTalk(function(name, level, mode, text, channelId, pos)
 end)
 
 
--- attack_with_storage.lua
-local ITEM_ID = 5725
-local SIGNAL_TIMEOUT = 300 -- segundos
-local MACRO_DELAY = 3000 -- ms
+local ITEM_ID = 2474
+local requestedTarget = nil
 
 local function itemPresent(id)
   local z = posz()
@@ -149,41 +147,24 @@ end
 onTalk(function(name, level, mode, text, channelId, pos)
   if not text then return end
   if text:lower():find("!attackme", 1, true) then
-    storage.requestedTarget = name
-    storage.requestTime = os.time()
-    print(("[SignalAttack][storage] Pedido salvo: %s (ts=%d)"):format(tostring(name), storage.requestTime))
+    requestedTarget = name
+    print("[SignalAttack] Pedido recebido de: " .. tostring(name))
   end
 end)
 
-macro(MACRO_DELAY, "Atacar por sinal (storage)", function()
-  if not storage.requestedTarget or storage.requestedTarget == "" then return end
-  local elapsed = os.time() - (storage.requestTime or 0)
-  if elapsed > SIGNAL_TIMEOUT then
-    print("[SignalAttack][storage] Pedido expirado. Limpando storage.")
-    storage.requestedTarget = nil
-    storage.requestTime = nil
-    return
-  end
+macro(3000, "Atacar por sinal com item", function()
+  if not requestedTarget then return end
   if not itemPresent(ITEM_ID) then return end
-  local creature = getCreatureByName(storage.requestedTarget)
-  if creature and creature:isPlayer() and g_game.getAttackingCreature() ~= creature then
-    g_game.attack(creature)
-    print(("[SignalAttack][storage] Atacando %s (pedido persistente)."):format(storage.requestedTarget))
-    -- não limpamos storage automaticamente (conforme seu pedido). Se quiser limpar após atacar, descomente a linha abaixo:
-    -- storage.requestedTarget, storage.requestTime = nil, nil
+
+  local creature = getCreatureByName(requestedTarget)
+  if creature and creature:isPlayer() then
+    if g_game.getAttackingCreature() ~= creature then
+      g_game.attack(creature)
+      print("[SignalAttack] Iniciando ataque em: " .. tostring(requestedTarget))
+    end
   end
 end)
 
--- Funções úteis (use no console se precisar)
-function clearAttackRequest()
-  storage.requestedTarget = nil
-  storage.requestTime = nil
-  print("[SignalAttack][storage] Pedido manualmente limpo.")
-end
-
-function showAttackRequest()
-  print(("Pedido atual: %s  ts=%s"):format(tostring(storage.requestedTarget), tostring(storage.requestTime)))
-end
 
 
 
@@ -229,13 +210,11 @@ UI.Label("---------------")
 
 
 
--- Atacar alvo (com storage para lembrar ON/OFF por conta)
 UI.Label("Nome do alvo para atacar:")
 local attackTargetName = UI.TextEdit(storage.attackTargetName or "Comedor-de-lanche", function(widget, text)
   storage.attackTargetName = text
 end)
 
--- macro principal (loop de 1s)
 local attackTarget = macro(1000, "Atacar alvo", function()
   local targetName = storage.attackTargetName
   if not targetName or targetName:trim() == "" then return end
@@ -245,55 +224,6 @@ local attackTarget = macro(1000, "Atacar alvo", function()
     if g_game.getAttackingCreature() ~= creature then
       g_game.attack(creature)
     end
-  end
-end)
-
--- Inicializa storage.attackTargetEnabled se não existir (por padrão desativado)
-if storage.attackTargetEnabled == nil then
-  storage.attackTargetEnabled = false
-end
-
--- Aplica o estado salvo: se storage diz true -> liga o macro; se false -> garante parado
-if storage.attackTargetEnabled then
-  if not attackTarget:isOn() then attackTarget:start() end
-else
-  if attackTarget:isOn() then attackTarget:stop() end
-end
-
--- Funções utilitárias para controlar por console (opcional)
-function enableAttackTarget()
-  storage.attackTargetEnabled = true
-  attackTarget:start()
-  print("[Atacar alvo] Habilitado e salvo em storage.")
-end
-
-function disableAttackTarget()
-  storage.attackTargetEnabled = false
-  attackTarget:stop()
-  print("[Atacar alvo] Desabilitado e salvo em storage.")
-end
-
-function toggleAttackTarget()
-  if attackTarget:isOn() then
-    disableAttackTarget()
-  else
-    enableAttackTarget()
-  end
-end
-
--- Sincroniza manual toggles do botão com o storage:
--- se o usuário clicar no botão do macro (que altera attackTarget:isOn()),
--- este loop detecta a mudança e atualiza storage para lembrar no próximo login.
-spawn(function()
-  local lastState = attackTarget:isOn()
-  while true do
-    local cur = attackTarget:isOn()
-    if cur ~= lastState then
-      storage.attackTargetEnabled = cur
-      print(("[Atacar alvo] Estado manual alterado -> storage atualizado = %s"):format(tostring(cur)))
-      lastState = cur
-    end
-    sleep(1000)
   end
 end)
 
