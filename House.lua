@@ -125,7 +125,7 @@ onTalk(function(name, level, mode, text, channelId, pos)
 end)
 
 
-local ITEM_ID = 2474
+local ITEM_ID = 5725
 local requestedTarget = nil
 
 local function itemPresent(id)
