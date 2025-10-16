@@ -297,14 +297,21 @@ end)
 
 
 storage.notifyChar = "Devinha"
+local lastNotify = 0
 
 onTextMessage(function(mode, text)
   local old, new = text:match("You advanced from Level (%d+) to Level (%d+)")
   if old and new then
+    local now = now or os.time()
+    if os.time() - lastNotify < 2 then return end -- evita duplicado
+    lastNotify = os.time()
+
     local msg = string.format("[%s] %s avançou do level %s para o level %s.",
       os.date("%H:%M:%S"), name(), old, new)
     sayPrivate(storage.notifyChar, msg)
   end
 end)
+
+
 
 
