@@ -1,196 +1,218 @@
-macro(1000, "Andar no horário (Norte)", function()
-  local H, M = 23, 55
-  storage.lastMove = storage.lastMove or {hour=-1, min=-1}
-  local t = os.date("*t")
-  if t.hour == H and t.min == M then
-    if storage.lastMove.hour ~= t.hour or storage.lastMove.min ~= t.min then
-      g_game.walk(North)
-      storage.lastMove = {hour=t.hour, min=t.min}
-    end
-  end
-end)
-
-macro(1000, "Andar no horário (Sul)", function()
-  local H, M = 00, 05
-  storage.lastMove = storage.lastMove or {hour=-1, min=-1}
-  local t = os.date("*t")
-  if t.hour == H and t.min == M then
-    if storage.lastMove.hour ~= t.hour or storage.lastMove.min ~= t.min then
-      g_game.walk(South)
-      storage.lastMove = {hour=t.hour, min=t.min}
-    end
-  end
-end)
-
-
-local saidOnLogin = false
-
-local sendCommandMacro = macro(1000, "RELOGAR RAT", function()
-  if not saidOnLogin and g_game.isOnline() then
-    say("!rat")
-    saidOnLogin = true
-  end
-end)
-
-
-
-UI.Label("Nomes para convidar para party:")
-local partyInviteList = UI.TextEdit(storage.partyInviteList or "Darkzin, Gokuu", function(widget, text)
-  storage.partyInviteList = text
-end)
-
-local inviteMacro = macro(2000, "Auto Invite Party", function()
-  if not storage.partyInviteList or storage.partyInviteList == "" then return end
-
-  local names = {}
-  for name in string.gmatch(storage.partyInviteList, '([^,]+)') do
-    name = name:trim()
-    if name ~= "" then
-      table.insert(names, name)
-    end
-  end
-  if #names == 0 then return end
-
-  if not storage.partyConfirmed then storage.partyConfirmed = {} end
-  if not storage.pendingInvites then storage.pendingInvites = {} end
-
-  -- Remove da lista quem já está na party
-  if g_game.getPartyMemberByName then
-    for _, name in ipairs(names) do
-      if g_game.getPartyMemberByName(name) then
-        storage.partyConfirmed[name:lower()] = true
-      end
-    end
-  end
-
-  for _, name in ipairs(names) do
-    local lowerName = name:lower()
-
-    if not storage.partyConfirmed[lowerName] and not storage.pendingInvites[lowerName] then
-      local creature = getCreatureByName(name)
-      if creature and creature:isPlayer() then
-        g_game.partyInvite(creature:getId())
-        storage.pendingInvites[lowerName] = true
-
-        -- ? Usa o nome real da criatura (com hífen, acento, etc.)
-        schedule(200, function()
-          say("pt " .. creature:getName())
-        end)
-
-        break -- só um por vez
-      end
-    end
-  end
-end)
-
--- Escuta mensagens do chat para registrar "pta"
-onTalk(function(name, level, mode, text, channelId, pos)
-  if text:lower() == "pta" then
-    storage.partyConfirmed = storage.partyConfirmed or {}
-    storage.partyConfirmed[name:lower()] = true
-    storage.pendingInvites = storage.pendingInvites or {}
-    storage.pendingInvites[name:lower()] = nil
-  end
-
-  -- Comando para resetar listas
-  if text:lower() == "!rat" then
-    storage.partyConfirmed = {}
-    storage.pendingInvites = {}
-    say("Listas de party resetadas.")
-  end
-end)
+setDefaultTab("Others")
 
 UI.Label("---------------")
 
-local acceptPartyMacro = macro(100, "Auto Accept Party", function() end)
+UI.Label('Spells:');
 
-onTalk(function(name, level, mode, text, channelId, pos)
-  if not acceptPartyMacro:isOn() then return end
+storage.widgetPos = storage.widgetPos or {};
 
-  local realName = player:getName()
-  local textLower = text:lower()
-  local realNameLower = realName:lower()
+local antiRedTimeWidget = setupUI([[
+UIWidget
+  background-color: black
+  opacity: 0.8
+  padding: 0 5
+  focusable: true
+  phantom: false
+  draggable: true
+]], g_ui.getRootWidget());
 
-  -- Verifica se a mensagem contém "pt" seguido do nome real (com hífen, maiúsculas, etc)
-  if textLower:match("pt%s+" .. realNameLower) or text:match("pt%s+" .. realName) then
-    local creature = getCreatureByName(name)
-    if creature then
-      say("pta")
-      schedule(100, function()
-        g_game.partyJoin(creature:getId())
-        acceptPartyMacro:stop()
-      end)
-    end
-  end
-end)
+local isMobile = modules._G.g_app.isMobile();
+g_keyboard = g_keyboard or modules.corelib.g_keyboard;
 
-
-local ITEM_ID = 5725
-local requestedTarget = nil
-
-local function itemPresent(id)
-  local z = posz()
-  local tiles = g_map.getTiles(z)
-  if not tiles then return false end
-  for _, tile in ipairs(tiles) do
-    local count = tile:getThingCount()
-    for i = 0, count - 1 do
-      local thing = tile:getThing(i)
-      if thing and thing.getId and thing:getId() == id then
-        return true
-      end
-    end
-  end
-  return false
+local isDragKeyPressed = function()
+	return isMobile and g_keyboard.isKeyPressed("F2") or g_keyboard.isCtrlPressed();
 end
 
-onTalk(function(name, level, mode, text, channelId, pos)
-  if not text then return end
-  if text:lower():find("!attackme", 1, true) then
-    requestedTarget = name
-    print("[SignalAttack] Pedido recebido de: " .. tostring(name))
-  end
+antiRedTimeWidget.onDragEnter = function(widget, mousePos)
+	if (not isDragKeyPressed()) then return; end
+	widget:breakAnchors();
+	local widgetPos = widget:getPosition();
+	widget.movingReference = {x = mousePos.x - widgetPos.x, y = mousePos.y - widgetPos.y};
+	return true;
+end
+
+antiRedTimeWidget.onDragMove = function(widget, mousePos, moved)
+	local parentRect = widget:getParent():getRect();
+	local x = math.min(math.max(parentRect.x, mousePos.x - widget.movingReference.x), parentRect.x + parentRect.width - widget:getWidth());
+	local y = math.min(math.max(parentRect.y - widget:getParent():getMarginTop(), mousePos.y - widget.movingReference.y), parentRect.y + parentRect.height - widget:getHeight());   
+	widget:move(x, y);
+	storage.widgetPos.antiRedTime = {x = x, y = y};
+	return true;
+end
+
+local name = "antiRedTime";
+storage.widgetPos[name] = storage.widgetPos[name] or {};
+antiRedTimeWidget:setPosition({x = storage.widgetPos[name].x or 50, y = storage.widgetPos[name].y or 50});
+
+
+
+local refreshSpells = function()
+	castingSpells = {};
+	if (storage.comboSpells) then
+		local split = storage.comboSpells:split(",");
+		for _, spell in ipairs(split) do
+			table.insert(castingSpells, spell:trim());
+		end
+	end
+end
+
+
+addTextEdit("Magias", storage.comboSpells or "magia1, magia2, magia3", function(widget, text)
+	storage.comboSpells = text;
+	refreshSpells();
 end)
 
-macro(3000, "Atacar por sinal com item", function()
-  if not requestedTarget then return end
-  if not itemPresent(ITEM_ID) then return end
+refreshSpells();
 
-  local creature = getCreatureByName(requestedTarget)
-  if creature and creature:isPlayer() then
-    if g_game.getAttackingCreature() ~= creature then
-      g_game.attack(creature)
-      print("[SignalAttack] Iniciando ataque em: " .. tostring(requestedTarget))
+
+UI.Label('Area:')
+addTextEdit("Area", storage.areaSpell or "Magia de Area", function(widget, text)
+	storage.areaSpell = text;
+end)
+
+if (not getSpectators or #getSpectators(true) == 0) then
+	getSpectators = function()
+		local specs = {};
+		local tiles = g_map.getTiles(posz());
+		for i = 1, #tiles do
+			local tile = tiles[i];
+			local creatures = tile:getCreatures();
+			for _, spec in ipairs(creatures) do
+				table.insert(specs, creature);
+			end
+		end
+		return specs;
+	end
+end
+
+if (not storage.antiRedTime or storage.antiRedTime - 30000 > now) then
+	storage.antiRedTime = 0;
+end
+
+local addAntiRedTime = function()
+	storage.antiRedTime = now + 30000;
+end
+
+local toInteger = function(number)
+	number = tostring(number);
+	number = number:split(".");
+	return tonumber(number[1]);
+end
+
+macro(1, "Anti-Red", function()
+	local pos, monstersCount = pos(), 0;
+	if (player:getSkull() >= 3) then
+		addAntiRedTime();
+	end
+	local specs = getSpectators(true);
+	for _, spec in ipairs(specs) do
+		local specPos = spec:getPosition();
+		local floorDiff = math.abs(specPos.z - pos.z);
+		if (floorDiff > 3) then 
+			goto continue;
+		end
+		if (spec ~= player and spec:isPlayer() and spec:getEmblem() ~= 1 and spec:getShield() < 3) then
+			addAntiRedTime();
+			break
+		elseif (floorDiff == 0 and spec:isMonster() and getDistanceBetween(specPos, pos) == 1) then
+			monstersCount = monstersCount + 1;
+		end
+		::continue::
+	end
+	if (storage.antiRedTime >= now) then
+		antiRedTimeWidget:show();
+		local diff = storage.antiRedTime - now;
+		diff = diff / 1000;
+		antiRedTimeWidget:setText(tr("Area blocked for %ds.", toInteger(diff)));
+		antiRedTimeWidget:setColor("red");
+	elseif (not antiRedTimeWidget:isHidden()) then
+		antiRedTimeWidget:hide();
+	end
+	if (monstersCount > 1 and storage.antiRedTime < now) then
+		return say(storage.areaSpell);
+	end
+	if (not g_game.isAttacking()) then return; end
+   	for _, spell in ipairs(castingSpells) do
+		say(spell);
+	end
+end)
+
+
+macro(1, "Virar Target pro Alvo", function()
+    if not g_game.isAttacking() then return end
+    local tt = g_game.getAttackingCreature()
+    local tx = tt:getPosition().x
+    local ty = tt:getPosition().y
+    local dir = player:getDirection()
+    local tdx = math.abs(tx - pos().x)
+    local tdy = math.abs(ty - pos().y)
+    if (tdy >= 2 and tdx >= 2) or tdx > 7 or tdy > 7 then return end
+    if tdy >= tdx then
+        if ty > pos().y then
+            if dir ~= 2 then return turn(2) end
+        else
+            if dir ~= 0 then return turn(0) end
+        end
+    else
+        if tx > pos().x then
+            if dir ~= 1 then return turn(1) end
+        else
+            if dir ~= 3 then return turn(3) end
+        end
     end
-  end
 end)
 
+local revidar = false
+addSwitch("revidar", "revidar", function(widget)
+    revidar = not revidar
+    widget:setOn(revidar)
+end)
 
-
-
+onTextMessage(function(mode, text)
+    if revidar == true and not g_game.getAttackingCreature() and string.find(text, "You lose") then
+        local targetName = text:match("attack by (.+)%.")
+        local target = getPlayerByName(targetName)
+        if target then
+            g_game.attack(target)
+        end
+    end
+end)
 
 UI.Label("---------------")
 
-
-
-macro(5000, "Power Down check", function()
-  for _, tile in ipairs(g_map.getTiles(posz())) do
-    for i=0, tile:getThingCount()-1 do
-      local thing = tile:getThing(i)
-      if thing and thing:getId() == 5725 then
-        say("Power Down")
-        return
-      end
+macro(100, "Mobs", function()
+    local battlelist = getSpectators()
+    local closest = 10
+    local lowesthpc = 101
+    for key, val in pairs(battlelist) do
+        if val:isMonster() then
+            local dist = getDistanceBetween(player:getPosition(), val:getPosition())
+            if dist <= closest then
+                closest = dist
+                if val:getHealthPercent() < lowesthpc then
+                    lowesthpc = val:getHealthPercent()
+                end
+            end
+        end
     end
-  end
+    for key, val in pairs(battlelist) do
+        if val:isMonster() then
+            local dist = getDistanceBetween(player:getPosition(), val:getPosition())
+            if dist <= closest then
+                if g_game.getAttackingCreature() ~= val and val:getHealthPercent() <= lowesthpc then
+                    g_game.attack(val)
+                    delay(100)
+                    break
+                end
+            end
+        end
+    end
 end)
-
-
 
 
 storage.areaSpell = storage.areaSpell or "Furie"
 
-macro(1000, "ATAQUE", function()
+macro(200, "area", function()
     say(storage.areaSpell)
 end)
 
@@ -199,108 +221,29 @@ addTextEdit("Ataque em Área", storage.areaSpell, function(widget, text)
 end)
 
 
-UI.Label("---------------")
-
-
-UI.Label(" x MAIN x ")
 
 
 UI.Label("---------------")
 
+local toFollow = "nick"
+local toFollowPos = {nick}
 
-
-
-UI.Label("Nome do alvo para atacar:")
-local attackTargetName = UI.TextEdit(storage.attackTargetName or "Comedor-de-lanche", function(widget, text)
-  storage.attackTargetName = text
+macro(200, "follow target", function()
+    local target = getCreatureByName(toFollow)
+    if target then
+        local tpos = target:getPosition()
+        toFollowPos[tpos.z] = tpos
+    end
+    if player:isWalking() then return end
+    local p = toFollowPos[posz()]
+    if not p then return end
+    if autoWalk(p, 20, {ignoreNonPathable = true, precision = 1}) then
+        delay(100)
+    end
 end)
 
-local attackTarget = macro(1000, "Atacar alvo", function()
-  local targetName = storage.attackTargetName
-  if not targetName or targetName:trim() == "" then return end
-
-  local creature = getCreatureByName(targetName)
-  if creature and creature:isPlayer() then
-    if g_game.getAttackingCreature() ~= creature then
-      g_game.attack(creature)
+onCreaturePositionChange(function(creature, oldPos, newPos)
+    if creature:getName() == toFollow then
+        toFollowPos[newPos.z] = newPos
     end
-  end
-end)
-
-
-
-
--- ME ATACAR (com storage)
-local ITEM_ID = 5725
-local DELAY = 5000 -- 5 segundos
-
--- Macro principal
-local meAtacarMacro = macro(DELAY, "ME ATACAR", function()
-  -- checa se item está na tela
-  local function itemPresent(id)
-    local z = posz()
-    local tiles = g_map.getTiles(z)
-    if not tiles then return false end
-    for _, tile in ipairs(tiles) do
-      local count = tile:getThingCount()
-      for i = 0, count - 1 do
-        local thing = tile:getThing(i)
-        if thing and thing.getId and thing:getId() == id then
-          return true
-        end
-      end
-    end
-    return false
-  end
-
-  if itemPresent(ITEM_ID) then
-    say("!attackme")
-  end
-end)
-
--- Inicializa storage se não existir (desativado por padrão)
-if storage.meAtacarEnabled == nil then
-  storage.meAtacarEnabled = false
-end
-
--- Aplica estado salvo
-if storage.meAtacarEnabled then
-  if not meAtacarMacro:isOn() then meAtacarMacro:start() end
-else
-  if meAtacarMacro:isOn() then meAtacarMacro:stop() end
-end
-
--- Funções utilitárias para console
-function enableMeAtacar()
-  storage.meAtacarEnabled = true
-  meAtacarMacro:start()
-  print("[ME ATACAR] Habilitado e salvo em storage.")
-end
-
-function disableMeAtacar()
-  storage.meAtacarEnabled = false
-  meAtacarMacro:stop()
-  print("[ME ATACAR] Desabilitado e salvo em storage.")
-end
-
-function toggleMeAtacar()
-  if meAtacarMacro:isOn() then
-    disableMeAtacar()
-  else
-    enableMeAtacar()
-  end
-end
-
--- Atualiza storage automaticamente se macro for ligado/desligado manualmente
-spawn(function()
-  local lastState = meAtacarMacro:isOn()
-  while true do
-    local cur = meAtacarMacro:isOn()
-    if cur ~= lastState then
-      storage.meAtacarEnabled = cur
-      lastState = cur
-      print(("[ME ATACAR] Estado alterado -> storage atualizado = %s"):format(tostring(cur)))
-    end
-    sleep(1000)
-  end
 end)
