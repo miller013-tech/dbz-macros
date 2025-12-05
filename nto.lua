@@ -1,3 +1,88 @@
+setDefaultTab("Cave")
+
+UI.Label("---------------")
+
+
+
+-- Estado: 0 = desligado, 1 = verde, 2 = vermelho
+local modo = 0
+
+-- Macro para mensagens a cada 7 segundos
+macro(1000, function()
+    if modo == 1 or modo == 2 then
+        local comando = (modo == 1) and "!pvp off" or "!pvp on"
+
+        if not storage.lastMsg or now - storage.lastMsg >= 7000 then
+            say(comando)
+            storage.lastMsg = now
+        end
+    end
+end)
+
+-- Macro para piscar a cor
+macro(200, function()
+    if modo == 1 then
+        if math.random() > 0.5 then
+            player:setMarked("green")
+        else
+            player:setMarked()
+        end
+    elseif modo == 2 then
+        if math.random() > 0.5 then
+            player:setMarked("red")
+        else
+            player:setMarked()
+        end
+    else
+        player:setMarked()
+    end
+end)
+
+-- Hotkey F1 para alternar modos
+hotkey("F1", function()
+    modo = modo + 1
+    if modo > 2 then modo = 0 end
+    storage.lastMsg = 0
+end)
+
+
+
+
+
+-- F2 ? usa !tecnicas
+hotkey("F2", function()
+    say("!tecnicas")
+end)
+
+-- F3 ? usa !reverter
+hotkey("F3", function()
+    say("!reverter")
+end)
+
+-- F4 ? usa !transformarfinal
+hotkey("F4", function()
+    say("!transformarfinal")
+end)
+
+
+hotkey("F11", function()
+    say("!owner list")
+end)
+
+
+
+
+
+
+
+macro(30000, "TRANSFORMAR!!!", function()
+    say("!transformarfinal")
+end)
+
+
+
+UI.Label("---------------")
+
 setDefaultTab("Others")
 
 UI.Label("---------------")
@@ -247,6 +332,8 @@ onCreaturePositionChange(function(creature, oldPos, newPos)
         toFollowPos[newPos.z] = newPos
     end
 end)
+
+
 
 
 
