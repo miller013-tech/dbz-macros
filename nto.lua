@@ -8,7 +8,7 @@ UI.Label("---------------")
 local modo = 0
 
 -- Macro para mensagens a cada 7 segundos
-macro(1000, function()
+macro(1000, "OFF-ON", function()
     if modo == 1 or modo == 2 then
         local comando = (modo == 1) and "!pvp off" or "!pvp on"
 
