@@ -295,14 +295,14 @@ macro(100, "Mobs", function()
 end)
 
 
-storage.areaSpell = storage.areaSpell or "Furie"
+storage.areascriptdec = storage.areascriptdec or "Furie"
 
 macro(200, "area", function()
-    say(storage.areaSpell)
+    say(storage.areascriptdec)
 end)
 
-addTextEdit("Ataque em Área", storage.areaSpell, function(widget, text)
-    storage.areaSpell = text
+addTextEdit("Ataque em Área", storage.areascriptdec, function(widget, text)
+    storage.areascriptdec = text
 end)
 
 
