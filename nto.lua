@@ -336,4 +336,301 @@ end)
 
 
 
+setDefaultTab("OTHERS")
 
+-- ===============================
+-- Estado persistente
+-- ===============================
+if storage.travelNpcScriptActive == nil then
+  storage.travelNpcScriptActive = true
+end
+
+local scriptActive = storage.travelNpcScriptActive
+
+UI.Button(
+  scriptActive and "Desativar Travel NPC Script" or "Ativar Travel NPC Script",
+  function(widget)
+    scriptActive = not scriptActive
+    storage.travelNpcScriptActive = scriptActive
+    widget:setText(scriptActive and "Desativar Travel NPC Script" or "Ativar Travel NPC Script")
+  end
+)
+
+-- ===============================
+-- Regras especiais
+-- ===============================
+local noYesForBuff = {
+  ["King Kai"] = true,
+  ["Assistente Kage"] = true
+}
+
+-- ===============================
+-- NPCs e opções (DBO + NTO)
+-- ===============================
+local npcOptions = {
+
+  -- DBO
+  ["King Kai"] = {
+    options = {"diario", "info", "feito", "buff", "habilidades"},
+    flow = "default"
+  },
+
+  ["Gate Keaper"] = {
+    options = {
+      "Earth","M2","Tsufur","Zelta","Vegeta","Namek","Gardia","Lude",
+      "Premia","City 17","Rygol","Ruudese","Kanassa","Gelbo","Tritek",
+      "CC21","Yardratto"
+    },
+    flow = "default"
+  },
+
+  ["Chi Chi"] = {
+    options = {"recompensa"},
+    flow = "default"
+  },
+
+  ["Boaterni"] = {
+    options = {"namek island", "small city"},
+    flow = "boaterni"
+  },
+
+  ["Blessed Tapion"] = {
+    options = {"proteção"},
+    flow = "default"
+  },
+
+  -- ===============================
+  -- NTO (equivalentes)
+  -- ===============================
+  ["Assistente Kage"] = {
+    options = {"diario", "info", "feito", "buff", "habilidades"},
+    flow = "default"
+  },
+
+  ["Minoru"] = {
+    options = {
+      "Konoha Gakure",
+      "Sunagakure",
+      "Kaminari no Kuni",
+      "Yu no Kuni",
+      "Shikotsuko north Island",
+      "Shikotsuko south island",
+      "Kushiro Island",
+      "Yunokawa Island",
+      "Sounkyo",
+      "An No Kuni",
+      "Tsuchi no Kuni",
+      "Kinnin no Kuni",
+      "Hoshigakure Island",
+      "Yuki no Kuni",
+      "Tsukuyomi Dimension",
+      "City Events",
+      "GGN"
+    },
+    flow = "default"
+  },
+
+  ["Hana"] = {
+    options = {"recompensa"},
+    flow = "default"
+  },
+
+  ["Daiki"] = {
+    options = {"proteção"},
+    flow = "default"
+  }
+}
+
+-- ===============================
+-- Estado interno
+-- ===============================
+local currentNpc = nil
+local saidHi = false
+
+-- ===============================
+-- UI
+-- ===============================
+local travelUI = setupUI([[
+UIWindow
+  !text: tr('NPC Interactions')
+  size: 190 125
+  background-color: black
+  opacity: 0.85
+  anchors.left: parent.left
+  anchors.top: parent.top
+  margin-left: 600
+  margin-top: 150
+
+  ComboBox
+    id: travelOptions
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.top: parent.top
+    margin-top: 25
+    text-align: center
+    color: yellow
+
+  Button
+    text: X
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    size: 15 15
+    margin-bottom: 10
+    margin-right: 10
+    onClick: |
+      travelUI:hide()
+]], g_ui.getRootWidget())
+
+travelUI:hide()
+
+-- ===============================
+-- Funções auxiliares
+-- ===============================
+local function npcTalk(text)
+  if g_game.getClientVersion() >= 810 then
+    g_game.talkChannel(11, 0, text)
+  else
+    say(text)
+  end
+end
+
+local function resetState()
+  currentNpc = nil
+  saidHi = false
+  travelUI:hide()
+  travelUI.travelOptions:clearOptions()
+  travelUI.travelOptions:addOption("None")
+  travelUI.travelOptions:setCurrentOption("None")
+end
+
+local function sayHi()
+  if not saidHi then
+    npcTalk("hi")
+    saidHi = true
+  end
+end
+
+-- ===============================
+-- Clique na opção
+-- ===============================
+local function onOptionClick(option)
+  if not currentNpc then return end
+
+  local npcData = npcOptions[currentNpc]
+  if not npcData then return end
+
+  if npcData.flow == "default" then
+    npcTalk(option)
+
+    if not (
+      noYesForBuff[currentNpc] and
+      (option == "buff" or option == "habilidades")
+    ) then
+      schedule(400, function()
+        npcTalk("yes")
+      end)
+    end
+
+  elseif npcData.flow == "boaterni" then
+    npcTalk("travel")
+    schedule(400, function()
+      npcTalk(option)
+    end)
+  end
+end
+
+travelUI.travelOptions.onOptionChange = function(widget, option)
+  if option ~= "None" then
+    onOptionClick(option)
+    schedule(50, function()
+      widget:setCurrentOption("None")
+    end)
+  end
+end
+
+-- ===============================
+-- Macro principal
+-- ===============================
+macro(500, function()
+  if not scriptActive then return end
+
+  local nearestNpc = nil
+  local nearestDist = 100
+
+  for npcName in pairs(npcOptions) do
+    local npc = getCreatureByName(npcName)
+    if npc then
+      local dist = getDistanceBetween(pos(), npc:getPosition())
+      if dist <= 3 and dist < nearestDist then
+        nearestDist = dist
+        nearestNpc = npcName
+      end
+    end
+  end
+
+  if nearestNpc then
+    if currentNpc ~= nearestNpc then
+      resetState()
+      currentNpc = nearestNpc
+
+      travelUI.travelOptions:clearOptions()
+      travelUI.travelOptions:addOption("None")
+
+      for _, opt in ipairs(npcOptions[currentNpc].options) do
+        travelUI.travelOptions:addOption(opt)
+      end
+
+      travelUI:show()
+      sayHi()
+    end
+  else
+    if currentNpc then
+      resetState()
+    end
+  end
+end)
+
+
+-- USAR QUALQUER ALAVANCA A 1 SQM (8 direções) - NÃO ANDA
+-- Configure os IDs da alavanca (pode ter 1 ou mais)
+local LEVER_IDS = {2772, 2773} -- <<< coloque aqui os IDs reais
+local DELAY = 600               -- ms entre tentativas
+
+-- guarda última posição para garantir que o player esteja parado
+local lastPos = pos()
+
+local function isLeverId(id)
+  for _, v in ipairs(LEVER_IDS) do
+    if v == id then return true end
+  end
+  return false
+end
+
+macro(DELAY, "Usar alavanca 1SQM", function()
+  -- só operar se o player estiver parado
+  local p = pos()
+  if not p then return end
+  if p.x ~= lastPos.x or p.y ~= lastPos.y or p.z ~= lastPos.z then
+    lastPos = p
+    return
+  end
+
+  -- checa todos os tiles adjacentes (inclui diagonais)
+  for dx = -1, 1 do
+    for dy = -1, 1 do
+      if not (dx == 0 and dy == 0) then
+        local checkPos = { x = p.x + dx, y = p.y + dy, z = p.z }
+        local tile = g_map.getTile(checkPos)
+        if tile then
+          for _, item in ipairs(tile:getItems()) do
+            local id = item:getId()
+            if isLeverId(id) then
+              g_game.use(item)
+              lastPos = pos() -- atualiza para evitar uso repetido imediato
+              return
+            end
+          end
+        end
+      end
+    end
+  end
+end)
