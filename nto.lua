@@ -634,3 +634,8 @@ macro(DELAY, "Usar alavanca 1SQM", function()
     end
   end
 end)
+
+
+macro(20, "Dance", function()
+    turn(math.random(0, 3)) 
+end)
