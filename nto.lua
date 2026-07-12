@@ -379,7 +379,7 @@ local npcOptions = {
     options = {
       "Earth","M2","Tsufur","Zelta","Vegeta","Namek","Gardia","Lude",
       "Premia","City 17","Rygol","Ruudese","Kanassa","Gelbo","Tritek",
-      "CC21","Yardratto"
+      "CC21","Yardratto", "Underworld"
     },
     flow = "default"
   },
