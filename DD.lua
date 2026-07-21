@@ -377,9 +377,9 @@ UI.TextEdit(storage.followPlayer, function(widget, text)
   storage.followPlayer = text
 end)
 
-UI.Label("---------------")
-
 local toFollowPos = {}
+
+UI.Label("---------------")
 
 macro(200, "Follow Target", function()
   local toFollow = storage.followPlayer
