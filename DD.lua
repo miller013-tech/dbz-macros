@@ -379,7 +379,7 @@ end)
 
 local toFollowPos = {}
 
-macro(200, "Follow Target", function()
+macro(200, "Follow", function()
   local toFollow = storage.followPlayer
 
   if toFollow == "" then return end
@@ -405,6 +405,8 @@ onCreaturePositionChange(function(creature, oldPos, newPos)
     toFollowPos[newPos.z] = newPos
   end
 end)
+
+UI.Label("---------------")
 
 macro(1, "Virar Target pro Alvo", function()
     if not g_game.isAttacking() then return end
