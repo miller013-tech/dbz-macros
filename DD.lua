@@ -369,7 +369,7 @@ end)
 
 UI.Label("---------------")
 
-UI.Label("Follow Player")
+UI.Label("Follow Player Nick")
 
 storage.followPlayer = storage.followPlayer or "nick"
 
@@ -379,7 +379,7 @@ end)
 
 local toFollowPos = {}
 
-macro(200, "Follow", function()
+macro(200, "Follow Player", function()
   local toFollow = storage.followPlayer
 
   if toFollow == "" then return end
