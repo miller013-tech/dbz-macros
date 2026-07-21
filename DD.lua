@@ -1,6 +1,6 @@
-UI.Label("------ DD LUA ------")
-
 setDefaultTab("Main")
+
+UI.Label("------ DD LUA ------")
 
 local SpellData = {};
 local CastData = {};
@@ -367,6 +367,8 @@ macro(1, "Anti-Red", function()
 	end
 end)
 
+UI.Label("---------------")
+
 UI.Label("Follow Player")
 
 storage.followPlayer = storage.followPlayer or "nick"
@@ -374,6 +376,8 @@ storage.followPlayer = storage.followPlayer or "nick"
 UI.TextEdit(storage.followPlayer, function(widget, text)
   storage.followPlayer = text
 end)
+
+UI.Label("---------------")
 
 local toFollowPos = {}
 
