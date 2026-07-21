@@ -1,4 +1,4 @@
-UI.Label("---------------")
+UI.Label("------ DD LUA ------")
 
 setDefaultTab("Main")
 
