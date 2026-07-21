@@ -379,8 +379,6 @@ end)
 
 local toFollowPos = {}
 
-UI.Label("---------------")
-
 macro(200, "Follow Target", function()
   local toFollow = storage.followPlayer
 
