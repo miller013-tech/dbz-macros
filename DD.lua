@@ -369,8 +369,6 @@ end)
 
 UI.Label("---------------")
 
-UI.Label("---------------")
-
 UI.Label("Follow Player Nick")
 
 storage.followPlayer = storage.followPlayer or "nick"
@@ -1078,6 +1076,8 @@ end)
 
 UI.Separator()
 
+UI.Separator()
+
 setDefaultTab("Cave")
 
 storage.notifyChar = storage.notifyChar or "Devinha"
@@ -1113,7 +1113,7 @@ onTextMessage(function(mode, text)
         local msg = string.format(
             "[%s] %s avançou do level %s para o level %s.",
             os.date("%H:%M:%S"),
-            name(),
+            player:getName(),
             old,
             new
         )
