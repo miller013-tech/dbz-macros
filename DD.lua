@@ -866,103 +866,151 @@ end
 
 UI.Separator()
 
--- Auto Equip v7.1 - por personagem
+-- Auto Equip v7 - por personagem + paineis
 
-local charName = playergetName()
 
-if type(storage.autoEquip) ~= table then
+local charName = player:getName()
+
+
+if type(storage.autoEquip) ~= "table" then
     storage.autoEquip = {}
 end
 
+
+
 if not storage.autoEquip[charName] then
+
     storage.autoEquip[charName] = {
         {
             on = true,
-            title = Auto Equip,
+            title = "Auto Equip",
             item1 = 6299,
             item2 = 6300,
             slot = 9
         }
     }
+
 end
+
+
 
 local autoEquip = storage.autoEquip[charName]
 
+
+
 local function save()
+
     storage.autoEquip[charName] = autoEquip
+
 end
 
-local title = UI.Label(Auto Equip)
-titlesetColor(#A020F0)
 
-UI.Button(+ Criar painel, function()
 
-    table.insert(autoEquip, {
-        on = false,
-        title = Auto Equip,
-        item1 = 0,
-        item2 = 0,
-        slot = 0
-    })
+local title = UI.Label("Auto Equip")
+title:setColor("#A020F0")
 
-    save()
-    reload()
+UI.Separator()
 
-end)
 
-UI.Button(Excluir último painel, function()
 
-    if #autoEquip  1 then
+local function buildUI()
 
-        table.remove(autoEquip, #autoEquip)
+
+    UI.Button("+ Criar painel", function()
+
+        table.insert(autoEquip, {
+            on = false,
+            title = "Auto Equip",
+            item1 = 0,
+            item2 = 0,
+            slot = 0
+        })
 
         save()
         reload()
 
-    end
+    end)
 
-end)
 
--- Apenas este separador permanece, separando os botões dos painéis.
-UI.Separator()
 
-for i, panel in ipairs(autoEquip) do
+    UI.Button("Excluir último painel", function()
 
-    UI.TwoItemsAndSlotPanel(panel, function(widget, newParams)
+        if #autoEquip > 1 then
 
-        autoEquip[i] = newParams
-        save()
+            table.remove(autoEquip, #autoEquip)
+
+            save()
+            reload()
+
+        end
 
     end)
 
-    -- Removido o UI.Separator() entre os painéis.
+
+
+    UI.Separator()
+
+
+
+    for i, panel in ipairs(autoEquip) do
+
+
+        UI.TwoItemsAndSlotPanel(panel, function(widget, newParams)
+
+            autoEquip[i] = newParams
+
+            save()
+
+        end)
+
+
+    end
+
 
 end
 
+
+
+buildUI()
+
+
+
 macro(250, function()
+
 
     local containers = g_game.getContainers()
 
+
     for _, equip in ipairs(autoEquip) do
+
 
         if equip.on and equip.item1 ~= 0 then
 
+
             local slotItem = getSlot(equip.slot)
 
+
+
             if not slotItem or
-               (slotItemgetId() ~= equip.item1 and slotItemgetId() ~= equip.item2) then
+            (slotItem:getId() ~= equip.item1 and slotItem:getId() ~= equip.item2) then
+
+
 
                 for _, container in pairs(containers) do
 
-                    for _, item in ipairs(containergetItems()) do
 
-                        if itemgetId() == equip.item1 or itemgetId() == equip.item2 then
+                    for _, item in ipairs(container:getItems()) do
+
+
+                        if item:getId() == equip.item1 or item:getId() == equip.item2 then
+
 
                             g_game.move(
                                 item,
                                 {x = 65535, y = equip.slot, z = 0},
-                                itemgetCount()
+                                item:getCount()
                             )
+
 
                             delay(1000)
                             return
@@ -979,8 +1027,10 @@ macro(250, function()
 
     end
 
+
 end)
 
+UI.Separator()
 
 UI.Label("Eatable items:")
 if type(storage.foodItems) ~= "table" then
