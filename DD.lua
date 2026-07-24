@@ -769,22 +769,37 @@ setDefaultTab("Dev")
 --4x equip
 
 
+UI.Separator()
+
 UI.Label("Mana training")
+
 if type(storage.manaTrain) ~= "table" then
   storage.manaTrain = {on=false, title="MP%", text="power down", min=65, max=100}
 end
 
-local manatrainmacro = macro(100, function()
+-- Força os valores padrão
+storage.manaTrain.text = "power down"
+storage.manaTrain.min = 65
+storage.manaTrain.max = 100
+
+local manatrainmacro = macro(1000, function()
   if TargetBot and TargetBot.isActive() then return end -- pause when attacking
+
   local mana = math.min(100, math.floor(100 * (player:getMana() / player:getMaxMana())))
+
   if storage.manaTrain.max >= mana and mana >= storage.manaTrain.min then
     say(storage.manaTrain.text)
   end
 end)
+
 manatrainmacro.setOn(storage.manaTrain.on)
 
-UI.DualScrollPanel(storage.manaTrain, function(widget, newParams) 
+UI.DualScrollPanel(storage.manaTrain, function(widget, newParams)
   storage.manaTrain = newParams
+
+  -- Mantém a magia fixa
+  storage.manaTrain.text = "power down"
+
   manatrainmacro.setOn(storage.manaTrain.on)
 end)
 
@@ -1064,6 +1079,63 @@ end)
 UI.Separator()
 
 setDefaultTab("Cave")
+
+storage.notifyChar = storage.notifyChar or "Devinha"
+
+local levelNotifyEnabled = false
+
+macro(1000, "Level Up Notify", function()
+    levelNotifyEnabled = true
+end)
+
+addTextEdit("Notify Player", storage.notifyChar, function(widget, text)
+    storage.notifyChar = text
+end)
+
+local lastNotify = 0
+
+onTextMessage(function(mode, text)
+
+    if not levelNotifyEnabled then
+        return
+    end
+
+    local old, new = text:match("You advanced from Level (%d+) to Level (%d+)")
+
+    if old and new then
+
+        if os.time() - lastNotify < 2 then
+            return
+        end
+
+        lastNotify = os.time()
+
+        local msg = string.format(
+            "[%s] %s avançou do level %s para o level %s.",
+            os.date("%H:%M:%S"),
+            name(),
+            old,
+            new
+        )
+
+        sayPrivate(storage.notifyChar, msg)
+    end
+
+end)
+
+local showhp = macro(20000, "HP dos Personagens", function() end)
+
+onCreatureHealthPercentChange(function(creature, healthPercent)
+    if showhp:isOff() then return end
+    if (creature:isMonster() or creature:isPlayer()) and creature:getPosition() and pos() then
+        if getDistanceBetween(pos(), creature:getPosition()) <= 5 then
+            creature:setText("\n\n\n\n" .. healthPercent .. "%")
+        else
+            creature:clearText()
+        end
+    end
+end)
+
 
 UI.Button("Zoom In map [ctrl + =]", function() zoomIn() end)
 UI.Button("Zoom Out map [ctrl + -]", function() zoomOut() end)
