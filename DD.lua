@@ -768,13 +768,35 @@ setDefaultTab("Dev")
 --anti paralyze
 --4x equip
 
+
+UI.Label("Mana training")
+if type(storage.manaTrain) ~= "table" then
+  storage.manaTrain = {on=false, title="MP%", text="power down", min=65, max=100}
+end
+
+local manatrainmacro = macro(100, function()
+  if TargetBot and TargetBot.isActive() then return end -- pause when attacking
+  local mana = math.min(100, math.floor(100 * (player:getMana() / player:getMaxMana())))
+  if storage.manaTrain.max >= mana and mana >= storage.manaTrain.min then
+    say(storage.manaTrain.text)
+  end
+end)
+manatrainmacro.setOn(storage.manaTrain.on)
+
+UI.DualScrollPanel(storage.manaTrain, function(widget, newParams) 
+  storage.manaTrain = newParams
+  manatrainmacro.setOn(storage.manaTrain.on)
+end)
+
+UI.Separator()
+
 UI.Label("Healing spells")
 
 if type(storage.healing1) ~= "table" then
-  storage.healing1 = {on=false, title="HP%", text="exura", min=51, max=90}
+  storage.healing1 = {on=false, title="HP%", text="regeneration", min=0, max=99}
 end
 if type(storage.healing2) ~= "table" then
-  storage.healing2 = {on=false, title="HP%", text="exura vita", min=0, max=50}
+  storage.healing2 = {on=false, title="HP%", text="big regeneration", min=0, max=99}
 end
 
 -- create 2 healing widgets
@@ -802,16 +824,16 @@ UI.Separator()
 UI.Label("Mana & health potions/runes")
 
 if type(storage.hpitem1) ~= "table" then
-  storage.hpitem1 = {on=false, title="HP%", item=266, min=51, max=90}
+  storage.hpitem1 = {on=false, title="HP%", item=3584, min=51, max=90}
 end
 if type(storage.hpitem2) ~= "table" then
-  storage.hpitem2 = {on=false, title="HP%", item=3160, min=0, max=50}
+  storage.hpitem2 = {on=false, title="HP%", item=3587, min=0, max=50}
 end
 if type(storage.manaitem1) ~= "table" then
-  storage.manaitem1 = {on=false, title="MP%", item=268, min=51, max=90}
+  storage.manaitem1 = {on=false, title="MP%", item=3584, min=51, max=90}
 end
 if type(storage.manaitem2) ~= "table" then
-  storage.manaitem2 = {on=false, title="MP%", item=3157, min=0, max=50}
+  storage.manaitem2 = {on=false, title="MP%", item=3587, min=0, max=50}
 end
 
 for i, healingInfo in ipairs({storage.hpitem1, storage.hpitem2, storage.manaitem1, storage.manaitem2}) do
@@ -844,6 +866,121 @@ end
 
 UI.Separator()
 
+-- Auto Equip v7.1 - por personagem
+
+local charName = playergetName()
+
+if type(storage.autoEquip) ~= table then
+    storage.autoEquip = {}
+end
+
+if not storage.autoEquip[charName] then
+    storage.autoEquip[charName] = {
+        {
+            on = true,
+            title = Auto Equip,
+            item1 = 6299,
+            item2 = 6300,
+            slot = 9
+        }
+    }
+end
+
+local autoEquip = storage.autoEquip[charName]
+
+local function save()
+    storage.autoEquip[charName] = autoEquip
+end
+
+local title = UI.Label(Auto Equip)
+titlesetColor(#A020F0)
+
+UI.Button(+ Criar painel, function()
+
+    table.insert(autoEquip, {
+        on = false,
+        title = Auto Equip,
+        item1 = 0,
+        item2 = 0,
+        slot = 0
+    })
+
+    save()
+    reload()
+
+end)
+
+UI.Button(Excluir último painel, function()
+
+    if #autoEquip  1 then
+
+        table.remove(autoEquip, #autoEquip)
+
+        save()
+        reload()
+
+    end
+
+end)
+
+-- Apenas este separador permanece, separando os botões dos painéis.
+UI.Separator()
+
+for i, panel in ipairs(autoEquip) do
+
+    UI.TwoItemsAndSlotPanel(panel, function(widget, newParams)
+
+        autoEquip[i] = newParams
+        save()
+
+    end)
+
+    -- Removido o UI.Separator() entre os painéis.
+
+end
+
+macro(250, function()
+
+    local containers = g_game.getContainers()
+
+    for _, equip in ipairs(autoEquip) do
+
+        if equip.on and equip.item1 ~= 0 then
+
+            local slotItem = getSlot(equip.slot)
+
+            if not slotItem or
+               (slotItemgetId() ~= equip.item1 and slotItemgetId() ~= equip.item2) then
+
+                for _, container in pairs(containers) do
+
+                    for _, item in ipairs(containergetItems()) do
+
+                        if itemgetId() == equip.item1 or itemgetId() == equip.item2 then
+
+                            g_game.move(
+                                item,
+                                {x = 65535, y = equip.slot, z = 0},
+                                itemgetCount()
+                            )
+
+                            delay(1000)
+                            return
+
+                        end
+
+                    end
+
+                end
+
+            end
+
+        end
+
+    end
+
+end)
+
 
 UI.Label("Eatable items:")
 if type(storage.foodItems) ~= "table" then
@@ -875,67 +1012,8 @@ macro(10000, "eat food", function()
 end)
 
 UI.Separator()
-UI.Label("Auto equip")
 
-if type(storage.autoEquip) ~= "table" then
-  storage.autoEquip = {}
-end
-for i=1,4 do -- if you want more auto equip panels you can change 4 to higher value
-  if not storage.autoEquip[i] then
-    storage.autoEquip[i] = {on=false, title="Auto Equip", item1=i == 1 and 3052 or 0, item2=i == 1 and 3089 or 0, slot=i == 1 and 9 or 0}
-  end
-  UI.TwoItemsAndSlotPanel(storage.autoEquip[i], function(widget, newParams)
-    storage.autoEquip[i] = newParams
-  end)
-end
-macro(250, function()
-  local containers = g_game.getContainers()
-  for index, autoEquip in ipairs(storage.autoEquip) do
-    if autoEquip.on then
-      local slotItem = getSlot(autoEquip.slot)
-      if not slotItem or (slotItem:getId() ~= autoEquip.item1 and slotItem:getId() ~= autoEquip.item2) then
-        for _, container in pairs(containers) do
-          for __, item in ipairs(container:getItems()) do
-            if item:getId() == autoEquip.item1 or item:getId() == autoEquip.item2 then
-              g_game.move(item, {x=65535, y=autoEquip.slot, z=0}, item:getCount())
-              delay(1000) -- don't call it too often      
-              return
-            end
-          end
-        end
-      end
-    end
-  end
-end)
-
--- allows to test/edit bot lua scripts ingame, you can have multiple scripts like this, just change storage.ingame_lua
-UI.Button("Ingame macro editor", function(newText)
-  UI.MultilineEditorWindow(storage.ingame_macros or "", {title="Macro editor", description="You can add your custom macros (or any other lua code) here"}, function(text)
-    storage.ingame_macros = text
-    reload()
-  end)
-end)
-UI.Button("Ingame hotkey editor", function(newText)
-  UI.MultilineEditorWindow(storage.ingame_hotkeys or "", {title="Hotkeys editor", description="You can add your custom hotkeys/singlehotkeys here"}, function(text)
-    storage.ingame_hotkeys = text
-    reload()
-  end)
-end)
-
-UI.Separator()
-
-for _, scripts in ipairs({storage.ingame_macros, storage.ingame_hotkeys}) do
-  if type(scripts) == "string" and scripts:len() > 3 then
-    local status, result = pcall(function()
-      assert(load(scripts, "ingame_editor"))()
-    end)
-    if not status then 
-      error("Ingame edior error:\n" .. result)
-    end
-  end
-end
-
-UI.Separator()
+setDefaultTab("Cave")
 
 UI.Button("Zoom In map [ctrl + =]", function() zoomIn() end)
 UI.Button("Zoom Out map [ctrl + -]", function() zoomOut() end)
@@ -1013,27 +1091,6 @@ macro(5000, "drop items", function()
       end
     end
   end
-end)
-
-UI.Separator()
-
-UI.Label("Mana training")
-if type(storage.manaTrain) ~= "table" then
-  storage.manaTrain = {on=false, title="MP%", text="utevo lux", min=80, max=100}
-end
-
-local manatrainmacro = macro(1000, function()
-  if TargetBot and TargetBot.isActive() then return end -- pause when attacking
-  local mana = math.min(100, math.floor(100 * (player:getMana() / player:getMaxMana())))
-  if storage.manaTrain.max >= mana and mana >= storage.manaTrain.min then
-    say(storage.manaTrain.text)
-  end
-end)
-manatrainmacro.setOn(storage.manaTrain.on)
-
-UI.DualScrollPanel(storage.manaTrain, function(widget, newParams) 
-  storage.manaTrain = newParams
-  manatrainmacro.setOn(storage.manaTrain.on)
 end)
 
 UI.Separator()
