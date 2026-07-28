@@ -1215,4 +1215,11 @@ macro(5000, "drop items", function()
   end
 end)
 
+
+macro(1000, "Teste Storage", function()
+    print("Follow:", storage.followPlayer)
+    print("Notify:", storage.notifyChar)
+    print("Mana:", storage.manaTrain and storage.manaTrain.text)
+end)
+
 UI.Separator()
