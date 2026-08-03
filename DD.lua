@@ -34,6 +34,21 @@ end)
 
 UI.Label("---------------")
 
+local showhp = macro(20000, "HP dos Personagens", function() end)
+
+onCreatureHealthPercentChange(function(creature, healthPercent)
+    if showhp:isOff() then return end
+    if (creature:isMonster() or creature:isPlayer()) and creature:getPosition() and pos() then
+        if getDistanceBetween(pos(), creature:getPosition()) <= 5 then
+            creature:setText("\n\n\n\n" .. healthPercent .. "%")
+        else
+            creature:clearText()
+        end
+    end
+end)
+
+UI.Label("---------------")
+
 -- =========================
 -- ⚡ Script de Combo com TextEdits visíveis
 -- =========================
@@ -538,6 +553,12 @@ local noYesForBuff = {
 local npcOptions = {
 
   -- DBO
+  ["Dederin"] = {
+    options = {"Small City", "Ice City", "Swamp City", "Big City", "Frozen City","West Island","East Island",
+			"Broken City", "Tsu Island", "Hope City", "Assassin Tower"},
+    flow = "default"
+  },
+	
   ["King Kai"] = {
     options = {"diario", "info", "feito", "buff", "habilidades"},
     flow = "default"
@@ -769,280 +790,6 @@ setDefaultTab("Dev")
 
 UI.Separator()
 
-UI.Label("Mana training")
-
-if type(storage.manaTrain) ~= "table" then
-  storage.manaTrain = {on=false, title="MP%", text="power down", min=65, max=100}
-end
-
--- Força os valores padrão
-storage.manaTrain.text = "power down"
-storage.manaTrain.min = 65
-storage.manaTrain.max = 100
-
-local manatrainmacro = macro(1000, function()
-  if TargetBot and TargetBot.isActive() then return end -- pause when attacking
-
-  local mana = math.min(100, math.floor(100 * (player:getMana() / player:getMaxMana())))
-
-  if storage.manaTrain.max >= mana and mana >= storage.manaTrain.min then
-    say(storage.manaTrain.text)
-  end
-end)
-
-manatrainmacro.setOn(storage.manaTrain.on)
-
-UI.DualScrollPanel(storage.manaTrain, function(widget, newParams)
-  storage.manaTrain = newParams
-
-  -- Mantém a magia fixa
-  storage.manaTrain.text = "power down"
-
-  manatrainmacro.setOn(storage.manaTrain.on)
-end)
-
-UI.Separator()
-
-UI.Label("Healing spells")
-
-if type(storage.healing1) ~= "table" then
-  storage.healing1 = {on=false, title="HP%", text="regeneration", min=0, max=99}
-end
-if type(storage.healing2) ~= "table" then
-  storage.healing2 = {on=false, title="HP%", text="big regeneration", min=0, max=99}
-end
-
--- create 2 healing widgets
-for _, healingInfo in ipairs({storage.healing1, storage.healing2}) do
-  local healingmacro = macro(20, function()
-    local hp = player:getHealthPercent()
-    if healingInfo.max >= hp and hp >= healingInfo.min then
-      if TargetBot then 
-        TargetBot.saySpell(healingInfo.text) -- sync spell with targetbot if available
-      else
-        say(healingInfo.text)
-      end
-    end
-  end)
-  healingmacro.setOn(healingInfo.on)
-
-  UI.DualScrollPanel(healingInfo, function(widget, newParams) 
-    healingInfo = newParams
-    healingmacro.setOn(healingInfo.on)
-  end)
-end
-
-UI.Separator()
-
-UI.Label("Mana & health potions/runes")
-
-if type(storage.hpitem1) ~= "table" then
-  storage.hpitem1 = {on=false, title="HP%", item=3584, min=51, max=90}
-end
-if type(storage.hpitem2) ~= "table" then
-  storage.hpitem2 = {on=false, title="HP%", item=3587, min=0, max=50}
-end
-if type(storage.manaitem1) ~= "table" then
-  storage.manaitem1 = {on=false, title="MP%", item=3584, min=51, max=90}
-end
-if type(storage.manaitem2) ~= "table" then
-  storage.manaitem2 = {on=false, title="MP%", item=3587, min=0, max=50}
-end
-
-for i, healingInfo in ipairs({storage.hpitem1, storage.hpitem2, storage.manaitem1, storage.manaitem2}) do
-  local healingmacro = macro(20, function()
-    local hp = i <= 2 and player:getHealthPercent() or math.min(100, math.floor(100 * (player:getMana() / player:getMaxMana())))
-    if healingInfo.max >= hp and hp >= healingInfo.min then
-      if TargetBot then 
-        TargetBot.useItem(healingInfo.item, healingInfo.subType, player) -- sync spell with targetbot if available
-      else
-        local thing = g_things.getThingType(healingInfo.item)
-        local subType = g_game.getClientVersion() >= 860 and 0 or 1
-        if thing and thing:isFluidContainer() then
-          subType = healingInfo.subType
-        end
-        g_game.useInventoryItemWith(healingInfo.item, player, subType)
-      end
-    end
-  end)
-  healingmacro.setOn(healingInfo.on)
-
-  UI.DualScrollItemPanel(healingInfo, function(widget, newParams) 
-    healingInfo = newParams
-    healingmacro.setOn(healingInfo.on and healingInfo.item > 100)
-  end)
-end
-
-if g_game.getClientVersion() < 780 then
-  UI.Label("In old tibia potions & runes work only when you have backpack with them opened")
-end
-
-UI.Separator()
-
--- Auto Equip v7 - por personagem + paineis
-
-
-local charName = player:getName()
-
-
-if type(storage.autoEquip) ~= "table" then
-    storage.autoEquip = {}
-end
-
-
-
-if not storage.autoEquip[charName] then
-
-    storage.autoEquip[charName] = {
-        {
-            on = true,
-            title = "Auto Equip",
-            item1 = 6299,
-            item2 = 6300,
-            slot = 9
-        }
-    }
-
-end
-
-
-
-local autoEquip = storage.autoEquip[charName]
-
-
-
-local function save()
-
-    storage.autoEquip[charName] = autoEquip
-
-end
-
-
-
-local title = UI.Label("Auto Equip")
-title:setColor("#A020F0")
-
-UI.Separator()
-
-
-
-local function buildUI()
-
-
-    UI.Button("+ Criar painel", function()
-
-        table.insert(autoEquip, {
-            on = false,
-            title = "Auto Equip",
-            item1 = 0,
-            item2 = 0,
-            slot = 0
-        })
-
-        save()
-        reload()
-
-    end)
-
-
-
-    UI.Button("Excluir último painel", function()
-
-        if #autoEquip > 1 then
-
-            table.remove(autoEquip, #autoEquip)
-
-            save()
-            reload()
-
-        end
-
-    end)
-
-
-
-    UI.Separator()
-
-
-
-    for i, panel in ipairs(autoEquip) do
-
-
-        UI.TwoItemsAndSlotPanel(panel, function(widget, newParams)
-
-            autoEquip[i] = newParams
-
-            save()
-
-        end)
-
-
-    end
-
-
-end
-
-
-
-buildUI()
-
-
-
-macro(250, function()
-
-
-    local containers = g_game.getContainers()
-
-
-    for _, equip in ipairs(autoEquip) do
-
-
-        if equip.on and equip.item1 ~= 0 then
-
-
-            local slotItem = getSlot(equip.slot)
-
-
-
-            if not slotItem or
-            (slotItem:getId() ~= equip.item1 and slotItem:getId() ~= equip.item2) then
-
-
-
-                for _, container in pairs(containers) do
-
-
-                    for _, item in ipairs(container:getItems()) do
-
-
-                        if item:getId() == equip.item1 or item:getId() == equip.item2 then
-
-
-                            g_game.move(
-                                item,
-                                {x = 65535, y = equip.slot, z = 0},
-                                item:getCount()
-                            )
-
-
-                            delay(1000)
-                            return
-
-                        end
-
-                    end
-
-                end
-
-            end
-
-        end
-
-    end
-
-
-end)
-
 UI.Separator()
 
 UI.Label("Eatable items:")
@@ -1076,65 +823,7 @@ end)
 
 UI.Separator()
 
-UI.Separator()
-
 setDefaultTab("Cave")
-
-storage.notifyChar = storage.notifyChar or "Devinha"
-
-local levelNotifyEnabled = false
-
-macro(1000, "Level Up Notify", function()
-    levelNotifyEnabled = true
-end)
-
-addTextEdit("Notify Player", storage.notifyChar, function(widget, text)
-    storage.notifyChar = text
-end)
-
-local lastNotify = 0
-
-onTextMessage(function(mode, text)
-
-    if not levelNotifyEnabled then
-        return
-    end
-
-    local old, new = text:match("You advanced from Level (%d+) to Level (%d+)")
-
-    if old and new then
-
-        if os.time() - lastNotify < 2 then
-            return
-        end
-
-        lastNotify = os.time()
-
-        local msg = string.format(
-            "[%s] %s avançou do level %s para o level %s.",
-            os.date("%H:%M:%S"),
-            player:getName(),
-            old,
-            new
-        )
-
-        sayPrivate(storage.notifyChar, msg)
-    end
-
-end)
-
-local showhp = macro(20000, "HP dos Personagens", function() end)
-
-onCreatureHealthPercentChange(function(creature, healthPercent)
-    if showhp:isOff() then return end
-    if (creature:isMonster() or creature:isPlayer()) and creature:getPosition() and pos() then
-        if getDistanceBetween(pos(), creature:getPosition()) <= 5 then
-            creature:setText("\n\n\n\n" .. healthPercent .. "%")
-        else
-            creature:clearText()
-        end
-    end
-end)
 
 
 UI.Button("Zoom In map [ctrl + =]", function() zoomIn() end)
@@ -1214,12 +903,3 @@ macro(5000, "drop items", function()
     end
   end
 end)
-
-
-macro(1000, "Teste Storage", function()
-    print("Follow:", storage.followPlayer)
-    print("Notify:", storage.notifyChar)
-    print("Mana:", storage.manaTrain and storage.manaTrain.text)
-end)
-
-UI.Separator()
