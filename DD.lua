@@ -384,50 +384,6 @@ end)
 
 UI.Label("---------------")
 
-UI.Label("Follow Player Nick")
-
-storage.followPlayer = storage.followPlayer or "nick"
-
-UI.TextEdit(storage.followPlayer, function(widget, text)
-  storage.followPlayer = text
-end)
-
-local toFollowPos = {}
-
-macro(200, "Follow Player", function()
-  local toFollow = storage.followPlayer
-
-  if not toFollow or toFollow == "" then return end
-
-  local target = getCreatureByName(toFollow)
-  if target then
-    local tpos = target:getPosition()
-    if tpos then
-      toFollowPos[tpos.z] = tpos
-    end
-  end
-
-  if player:isWalking() then return end
-
-  local p = toFollowPos[posz()]
-  if not p then return end
-
-  if autoWalk(p, 20, {
-    ignoreNonPathable = true,
-    precision = 1
-  }) then
-    delay(100)
-  end
-end)
-
-onCreaturePositionChange(function(creature, oldPos, newPos)
-  if not creature then return end
-  if not newPos then return end
-
-  if creature:getName() == storage.followPlayer then
-    toFollowPos[newPos.z] = newPos
-  end
-end)
 
 
 UI.Label("---------------")
