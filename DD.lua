@@ -1,6 +1,6 @@
 setDefaultTab("Main")
 
-UI.Label("------ DD LUA -- teste ----")
+UI.Label("------ DD LUA -- testee2 ----")
 
 local SpellData = {};
 local CastData = {};
