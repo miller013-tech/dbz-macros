@@ -1,13 +1,3 @@
-setDefaultTab("Others")
-
-UI.Label("===== TESTE STORAGE =====")
-
-storage.testeStorage = storage.testeStorage or "PADRAO"
-
-addTextEdit("Teste Storage", storage.testeStorage, function(widget, text)
-    storage.testeStorage = text
-end)
-
-macro(1000, "Mostrar Storage Teste", function()
-    print("TESTE STORAGE:", storage.testeStorage)
-end)
+storage.TESTE_LOADER = storage.TESTE_LOADER or 0
+storage.TESTE_LOADER = storage.TESTE_LOADER + 1
+print(storage.TESTE_LOADER)
