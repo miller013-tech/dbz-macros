@@ -1,53 +1,6 @@
 setDefaultTab("Main")
 
-UI.Label("------ DD LUA -- testee2 ----")
-
-local SpellData = {};
-local CastData = {};
-
-local update = function(data)
-    SpellData = data:split(",");
-    storage.SpellData = text;
-end
-
-UI.TextEdit(storage.SpellData or "Magia, Magia em Laranja", function(widget, text)
-    text = text:trim():lower();
-    update(text);
-end)
-
-spellTimeMacro = macro(1, 'Spell Time', function()
-    say(SpellData[1]);
-end)
-
-onTalk(function(name, level, mode, text, channelId, pos)
-    if (player:getName() ~= name) then return; end
-    if (spellTimeMacro.isOff()) then return; end
-    
-    local spellName = (SpellData[2] or SpellData[1]):trim();
-    if (text:lower() == spellName) then
-        if (CastData.name == spellName) then
-            info(tr(now - CastData.time));
-        end
-        CastData = {name=spellName,time=now};
-    end
-end)
-
-UI.Label("---------------")
-
-local showhp = macro(20000, "HP dos Personagens", function() end)
-
-onCreatureHealthPercentChange(function(creature, healthPercent)
-    if showhp:isOff() then return end
-    if (creature:isMonster() or creature:isPlayer()) and creature:getPosition() and pos() then
-        if getDistanceBetween(pos(), creature:getPosition()) <= 5 then
-            creature:setText("\n\n\n\n" .. healthPercent .. "%")
-        else
-            creature:clearText()
-        end
-    end
-end)
-
-UI.Label("---------------")
+UI.Label("------ DD 2 ------")
 
 -- =========================
 -- ⚡ Script de Combo com TextEdits visíveis
@@ -158,92 +111,139 @@ onKeyDown(function(keys)
     end
 end)
 
-setDefaultTab("Cave")
+UI.Label("---------------")
+
+UI.Label("Follow Player Nick")
+
+storage.followPlayer = storage.followPlayer or "nick"
+
+UI.TextEdit(storage.followPlayer, function(widget, text)
+  storage.followPlayer = text
+end)
+
+local toFollowPos = {}
+
+macro(200, "Follow Player", function()
+  local toFollow = storage.followPlayer
+
+  if not toFollow or toFollow == "" then return end
+
+  local target = getCreatureByName(toFollow)
+  if target then
+    local tpos = target:getPosition()
+    if tpos then
+      toFollowPos[tpos.z] = tpos
+    end
+  end
+
+  if player:isWalking() then return end
+
+  local p = toFollowPos[posz()]
+  if not p then return end
+
+  if autoWalk(p, 20, {
+    ignoreNonPathable = true,
+    precision = 1
+  }) then
+    delay(100)
+  end
+end)
+
+onCreaturePositionChange(function(creature, oldPos, newPos)
+  if not creature then return end
+  if not newPos then return end
+
+  if creature:getName() == storage.followPlayer then
+    toFollowPos[newPos.z] = newPos
+  end
+end)
+
 
 UI.Label("---------------")
 
-
-
--- Estado: 0 = desligado, 1 = verde, 2 = vermelho
-local modo = 0
-
--- Macro para mensagens a cada 7 segundos
-macro(1000, "OFF-ON", function()
-    if modo == 1 or modo == 2 then
-        local comando = (modo == 1) and "!pvp off" or "!pvp on"
-
-        if not storage.lastMsg or now - storage.lastMsg >= 7000 then
-            say(comando)
-            storage.lastMsg = now
-        end
-    end
-end)
-
--- Macro para piscar a cor
-macro(200, function()
-    if modo == 1 then
-        if math.random() > 0.5 then
-            player:setMarked("green")
+macro(1, "Virar Target pro Alvo", function()
+    if not g_game.isAttacking() then return end
+    local tt = g_game.getAttackingCreature()
+    local tx = tt:getPosition().x
+    local ty = tt:getPosition().y
+    local dir = player:getDirection()
+    local tdx = math.abs(tx - pos().x)
+    local tdy = math.abs(ty - pos().y)
+    if (tdy >= 2 and tdx >= 2) or tdx > 7 or tdy > 7 then return end
+    if tdy >= tdx then
+        if ty > pos().y then
+            if dir ~= 2 then return turn(2) end
         else
-            player:setMarked()
-        end
-    elseif modo == 2 then
-        if math.random() > 0.5 then
-            player:setMarked("red")
-        else
-            player:setMarked()
+            if dir ~= 0 then return turn(0) end
         end
     else
-        player:setMarked()
+        if tx > pos().x then
+            if dir ~= 1 then return turn(1) end
+        else
+            if dir ~= 3 then return turn(3) end
+        end
     end
 end)
 
--- Hotkey F1 para alternar modos
-hotkey("F1", function()
-    modo = modo + 1
-    if modo > 2 then modo = 0 end
-    storage.lastMsg = 0
+local revidar = false
+addSwitch("revidar", "revidar", function(widget)
+    revidar = not revidar
+    widget:setOn(revidar)
 end)
 
-
-
-
-
--- F2 ? usa !tecnicas
-hotkey("F2", function()
-    say("!tecnicas")
+onTextMessage(function(mode, text)
+    if revidar == true and not g_game.getAttackingCreature() and string.find(text, "You lose") then
+        local targetName = text:match("attack by (.+)%.")
+        local target = getPlayerByName(targetName)
+        if target then
+            g_game.attack(target)
+        end
+    end
 end)
 
--- F3 ? usa !reverter
-hotkey("F3", function()
-    say("!reverter")
-end)
+setDefaultTab("Cave")
 
--- F4 ? usa !transformarfinal
-hotkey("F4", function()
-    say("!transformarfinal")
-end)
-
-
-hotkey("F11", function()
-    say("!owner list")
-end)
-
-
-
-
-
-
+UI.Label("---------------")
 
 macro(30000, "TRANSFORMAR!!!", function()
     say("!transformarfinal")
 end)
 
-
-
 UI.Label("---------------")
 
 setDefaultTab("Others")
+
+local SpellData = {};
+local CastData = {};
+
+local update = function(data)
+    SpellData = data:split(",");
+    storage.SpellData = text;
+end
+
+UI.TextEdit(storage.SpellData or "Magia, Magia em Laranja", function(widget, text)
+    text = text:trim():lower();
+    update(text);
+end)
+
+spellTimeMacro = macro(1, 'Spell Time', function()
+    say(SpellData[1]);
+end)
+
+onTalk(function(name, level, mode, text, channelId, pos)
+    if (player:getName() ~= name) then return; end
+    if (spellTimeMacro.isOff()) then return; end
+
+    local spellName = (SpellData[2] or SpellData[1]):trim();
+    if (text:lower() == spellName) then
+        if (CastData.name == spellName) then
+            info(tr(now - CastData.time));
+        end
+        CastData = {name=spellName,time=now};
+    end
+end)
+
+UI.Label("---------------")
 
 UI.Label("---------------")
 
@@ -384,50 +384,6 @@ end)
 
 UI.Label("---------------")
 
-
-
-UI.Label("---------------")
-
-macro(1, "Virar Target pro Alvo", function()
-    if not g_game.isAttacking() then return end
-    local tt = g_game.getAttackingCreature()
-    local tx = tt:getPosition().x
-    local ty = tt:getPosition().y
-    local dir = player:getDirection()
-    local tdx = math.abs(tx - pos().x)
-    local tdy = math.abs(ty - pos().y)
-    if (tdy >= 2 and tdx >= 2) or tdx > 7 or tdy > 7 then return end
-    if tdy >= tdx then
-        if ty > pos().y then
-            if dir ~= 2 then return turn(2) end
-        else
-            if dir ~= 0 then return turn(0) end
-        end
-    else
-        if tx > pos().x then
-            if dir ~= 1 then return turn(1) end
-        else
-            if dir ~= 3 then return turn(3) end
-        end
-    end
-end)
-
-local revidar = false
-addSwitch("revidar", "revidar", function(widget)
-    revidar = not revidar
-    widget:setOn(revidar)
-end)
-
-onTextMessage(function(mode, text)
-    if revidar == true and not g_game.getAttackingCreature() and string.find(text, "You lose") then
-        local targetName = text:match("attack by (.+)%.")
-        local target = getPlayerByName(targetName)
-        if target then
-            g_game.attack(target)
-        end
-    end
-end)
-
 UI.Label("---------------")
 
 macro(100, "Mobs", function()
@@ -474,6 +430,7 @@ end)
 
 
 UI.Label("---------------")
+
 
 setDefaultTab("OTHERS")
 
@@ -734,128 +691,60 @@ macro(500, function()
   end
 end)
 
-setDefaultTab("Dev")
-
---2x healing spell
---2x healing rune
---utani hur
---mana shield
---anti paralyze
---4x equip
-
-
-UI.Separator()
-
-UI.Separator()
-
-UI.Label("Eatable items:")
-if type(storage.foodItems) ~= "table" then
-  storage.foodItems = {3582, 3577}
-end
-
-local foodContainer = UI.Container(function(widget, items)
-  storage.foodItems = items
-end, true)
-foodContainer:setHeight(35)
-foodContainer:setItems(storage.foodItems)
-
-macro(10000, "eat food", function()
-  if not storage.foodItems[1] then return end
-  -- search for food in containers
-  for _, container in pairs(g_game.getContainers()) do
-    for __, item in ipairs(container:getItems()) do
-      for i, foodItem in ipairs(storage.foodItems) do
-        if item:getId() == foodItem.id then
-          return g_game.use(item)
-        end
-      end
-    end
-  end
-  -- can't find any food, try to eat random item using hotkey
-  if g_game.getClientVersion() < 780 then return end -- hotkey's dont work on old tibia
-  local toEat = storage.foodItems[math.random(1, #storage.foodItems)]
-  if toEat then g_game.useInventoryItem(toEat.id) end
-end)
-
-UI.Separator()
-
 setDefaultTab("Cave")
 
+storage.notifyChar = storage.notifyChar or "Devinha"
 
-UI.Button("Zoom In map [ctrl + =]", function() zoomIn() end)
-UI.Button("Zoom Out map [ctrl + -]", function() zoomOut() end)
+local levelNotifyEnabled = false
 
-UI.Separator()
-
-local moneyIds = {3031, 3035} -- gold coin, platinium coin
-macro(1000, "Exchange money", function()
-  local containers = g_game.getContainers()
-  for index, container in pairs(containers) do
-    if not container.lootContainer then -- ignore monster containers
-      for i, item in ipairs(container:getItems()) do
-        if item:getCount() == 100 then
-          for m, moneyId in ipairs(moneyIds) do
-            if item:getId() == moneyId then
-              return g_game.use(item)            
-            end
-          end
-        end
-      end
-    end
-  end
+macro(1000, "Level Up Notify", function()
+    levelNotifyEnabled = true
 end)
 
-macro(1000, "Stack items", function()
-  local containers = g_game.getContainers()
-  local toStack = {}
-  for index, container in pairs(containers) do
-    if not container.lootContainer then -- ignore monster containers
-      for i, item in ipairs(container:getItems()) do
-        if item:isStackable() and item:getCount() < 100 then
-          local stackWith = toStack[item:getId()]
-          if stackWith then
-            g_game.move(item, stackWith[1], math.min(stackWith[2], item:getCount()))
+addTextEdit("Notify Player", storage.notifyChar, function(widget, text)
+    storage.notifyChar = text
+end)
+
+local lastNotify = 0
+
+onTextMessage(function(mode, text)
+
+    if not levelNotifyEnabled then
+        return
+    end
+
+    local old, new = text:match("You advanced from Level (%d+) to Level (%d+)")
+
+    if old and new then
+
+        if os.time() - lastNotify < 2 then
             return
-          end
-          toStack[item:getId()] = {container:getSlotPosition(i - 1), 100 - item:getCount()}
         end
-      end
+
+        lastNotify = os.time()
+
+        local msg = string.format(
+            "[%s] %s avançou do level %s para o level %s.",
+            os.date("%H:%M:%S"),
+            player:getName(),
+            old,
+            new
+        )
+
+        sayPrivate(storage.notifyChar, msg)
     end
-  end
+
 end)
 
-macro(10000, "Anti Kick",  function()
-  local dir = player:getDirection()
-  turn((dir + 1) % 4)
-  turn(dir)
-end)
+local showhp = macro(20000, "HP dos Personagens", function() end)
 
-UI.Separator()
-UI.Label("Drop items:")
-if type(storage.dropItems) ~= "table" then
-  storage.dropItems = {283, 284, 285}
-end
-
-local foodContainer = UI.Container(function(widget, items)
-  storage.dropItems = items
-end, true)
-foodContainer:setHeight(35)
-foodContainer:setItems(storage.dropItems)
-
-macro(5000, "drop items", function()
-  if not storage.dropItems[1] then return end
-  if TargetBot and TargetBot.isActive() then return end -- pause when attacking
-  for _, container in pairs(g_game.getContainers()) do
-    for __, item in ipairs(container:getItems()) do
-      for i, dropItem in ipairs(storage.dropItems) do
-        if item:getId() == dropItem.id then
-          if item:isStackable() then
-            return g_game.move(item, player:getPosition(), item:getCount())
-          else
-            return g_game.move(item, player:getPosition(), dropItem.count) -- count is also subtype
-          end
+onCreatureHealthPercentChange(function(creature, healthPercent)
+    if showhp:isOff() then return end
+    if (creature:isMonster() or creature:isPlayer()) and creature:getPosition() and pos() then
+        if getDistanceBetween(pos(), creature:getPosition()) <= 5 then
+            creature:setText("\n\n\n\n" .. healthPercent .. "%")
+        else
+            creature:clearText()
         end
-      end
     end
-  end
 end)
